@@ -165,6 +165,9 @@ appropriate size.
 - **SC-005**: A new user can understand the core loop — log a day, grow the fire, don't miss two in
   a row — within their first session without external instructions.
 - **SC-006**: Recorded scores survive app restarts with no data loss in 100% of sessions.
+- **SC-007**: The animated flame renders at the device's display refresh rate — at least 120 frames
+  per second on 120 Hz-capable devices and 60 frames per second on 60 Hz devices — with no sustained
+  frame drops while the user is logging or changing scores.
 
 ## Assumptions
 
@@ -181,3 +184,7 @@ appropriate size.
 - **Extinguish semantics**: When the fire goes out it fully resets to zero (confirmed with
   stakeholder); there is no partial penalty or dormant "keep size" mode.
 - **History retention**: All past Daily Entries are kept indefinitely; there is no automatic purge.
+- **Terminology ("strength" vs "size")**: "Strength" is the internal numeric magnitude of the fire
+  (the cumulative sum of contributions); "size" is how that strength is shown to the user as a larger
+  flame. They refer to the same underlying quantity — strength is the metric, size is its visual
+  representation.

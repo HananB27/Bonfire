@@ -27,8 +27,9 @@ Before implementing any UI, you **MUST**:
 
 1. **Fetch the design** from:
    `https://api.anthropic.com/v1/design/h/eOB-vSewWG4d4riVK_jhKg?open_file=Bonfire.html`
-2. **Read its README** (and any tokens/notes in that bundle) to understand intended structure,
-   design tokens, and component breakdown.
+2. **Read its README / notes if present** (and any tokens in that bundle) to understand intended
+   structure, design tokens, and component breakdown. If the bundle has no README, infer the
+   structure and tokens directly from the rendered design — do not block on a missing README.
 3. **Implement `Bonfire.html`** — translate the design's relevant aspects (layout, spacing, color
    palette, typography, flame visual states, calendar cell styling, ember/glow treatment, and
    interaction affordances) into React Native components. The HTML/CSS is a faithful visual

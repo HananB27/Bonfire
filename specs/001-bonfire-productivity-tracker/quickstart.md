@@ -18,8 +18,9 @@ the source; this is a run/validation guide. See [data-model.md](./data-model.md)
 
 Fetch and read the design, then implement `Bonfire.html`:
 - URL: `https://api.anthropic.com/v1/design/h/eOB-vSewWG4d4riVK_jhKg?open_file=Bonfire.html`
-- Read its README, extract tokens into `src/components/theme/tokens.ts`, reproduce the flame states
-  and calendar styling in RN. See plan.md → **Design Source (MUST DO)**.
+- Read its README/notes if present (otherwise infer from the rendered design), extract tokens into
+  `src/components/theme/tokens.ts`, reproduce the flame states and calendar styling in RN. See
+  plan.md → **Design Source (MUST DO)**.
 
 ## Run
 
@@ -63,7 +64,7 @@ Each maps to a user story / success criterion. Run on a device/emulator after bu
 1. Record several scores, force-quit the app, reopen.
 2. Expect: all scores and the fire state are exactly as left.
 
-### V5 — Performance (Performance Goals / Principle V)
+### V5 — Performance (Performance Goals / SC-007 / Principle V)
 1. Open the device Perf Monitor.
 2. Rapidly log/change scores while the flame animates.
 3. Expect: UI-thread FPS holds at the panel refresh rate (120 on 120 Hz devices), no sustained drops.
