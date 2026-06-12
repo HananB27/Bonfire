@@ -1,77 +1,74 @@
-# Quickstart & Validation Guide: Bonfire Productivity Tracker
+# Quickstart & Validation Guide: Bonfire Productivity Tracker (Expo, design-faithful)
 
-How to run, test, and validate the feature end-to-end. Implementation details live in `tasks.md` and
-the source; this is a run/validation guide. See [data-model.md](./data-model.md) and
-[contracts/](./contracts/) for exact shapes/behaviors.
+How to run, test, and validate. Implementation detail lives in `tasks.md` and the source; see
+[data-model.md](./data-model.md) and [contracts/](./contracts/) for exact shapes. The canonical look
+is `BonfireDesign/` (code + `screenshots/`).
 
 ## Prerequisites
 
-- Node ≥ 22.11.0 (see `package.json` engines).
-- React Native 0.86 toolchain set up (see project `README.md` — Metro, Android Studio / Xcode).
-- Add the persistence dependency:
+- Node (current LTS), and the Expo toolchain (`npx expo`).
+- Install dependencies:
   ```sh
-  npm install @react-native-async-storage/async-storage
+  npx expo install @shopify/react-native-skia react-native-reanimated react-native-gesture-handler \
+    expo-linear-gradient @react-native-async-storage/async-storage react-native-safe-area-context
   ```
-  (iOS: `cd ios && pod install` on first add.)
+- Babel: add `react-native-reanimated/plugin` (last) in `babel.config.js`.
+- Wrap the app in `GestureHandlerRootView` (in `App.tsx`).
 
-## Design step (MUST DO before building UI)
+## Design step (MUST DO before/while building UI)
 
-Fetch and read the design, then implement `Bonfire.html`:
-- URL: `https://api.anthropic.com/v1/design/h/eOB-vSewWG4d4riVK_jhKg?open_file=Bonfire.html`
-- Read its README/notes if present (otherwise infer from the rendered design), extract tokens into
-  `src/components/theme/tokens.ts`, reproduce the flame states and calendar styling in RN. See
-  plan.md → **Design Source (MUST DO)**.
+Match `BonfireDesign/` closely (plan.md → **Design Source (MUST DO)**):
+- Port `styles.css :root` → `src/theme/tokens.ts`; `app.jsx FLAME_PALETTES` → `src/theme/palettes.ts`.
+- Reproduce the flame from `fire.jsx`/`styles.css` in Skia (`Flame.tsx`/`Embers.tsx`).
+- Keep the app side-by-side with `screenshots/open.png`, `open2.png`, `open3.png` while building.
 
 ## Run
 
 ```sh
-npm start            # Metro
-npm run android      # or: npm run ios
+npx expo start            # then press a (Android) / i (iOS), or scan with a dev client
 ```
 
 ## Lint & test (constitution quality gates)
 
 ```sh
-npm run lint         # zero errors required
-npm test             # all green required
+npm run lint              # zero errors required
+npm test                  # all green required (jest-expo)
 ```
 
-## Validation scenarios (prove the feature works)
-
-Each maps to a user story / success criterion. Run on a device/emulator after building.
+## Validation scenarios
 
 ### V1 — Log today, fire grows (US1 / SC-001, SC-002)
-1. Fresh install → fire shown **unlit** (spark/empty).
-2. Tap today, pick **3** → fire ignites; size = strength 2.
-3. Change today to **5** → fire grows to the max single-day size.
-4. Change today to **1** → fire stays lit, size unchanged.
-- Expect: visible update < 3s each time.
+Open app → clean full-screen flame. Swipe up → calendar. Tap today → pick 5 → flame ignites/grows;
+caption updates (e.g. "strength 4"). Visible update < 3s.
 
-### V2 — Streak & extinguish (US2 / SC-003)
-1. Seed a lit fire (a few scored days).
-2. Leave exactly one past day empty → fire still **lit**.
-3. Use the dev "advance date" control (dev build only) so two consecutive past days are empty → fire
-   shown **out**, strength **0**.
-4. Log any new day → fire relights from a fresh spark, accumulating from 0.
+### V2 — Streak & extinguish (US2 / SC-003, SC-010)
+Seed a lit fire; one missed past day → still lit. Use the `__DEV__` advance-day control until two
+consecutive past days are empty → flame disappears (out): no flame, no embers, cold logs + smoke wisp.
 
-### V3 — Backfill recompute (US3 / SC-004)
-1. From the V2 "out" state, tap one of the two missed days and assign a score.
-2. Expect: the two-miss gap shrinks to one; fire recomputes to **lit** with correct size.
-3. Verify order-independence: entering the same scores in any order yields the same fire (covered by
-   `__tests__/fire.test.ts`).
+### V3 — Backfill across months (US3 / SC-004 / FR-020)
+From an out state, page the calendar **back** a month (confirm the `›` next button is disabled on the
+current month), score one of the missed days → fire recomputes to lit. Order-independence covered by
+`fire.test.ts`.
 
-### V4 — Persistence (SC-006 / FR-014)
-1. Record several scores, force-quit the app, reopen.
-2. Expect: all scores and the fire state are exactly as left.
+### V4 — Reveal/hide calendar (US4 / SC-009)
+On open the calendar is hidden; swipe up reveals it (flame lifts/dims); swipe down hides it.
 
-### V5 — Performance (Performance Goals / SC-007 / Principle V)
-1. Open the device Perf Monitor.
-2. Rapidly log/change scores while the flame animates.
-3. Expect: UI-thread FPS holds at the panel refresh rate (120 on 120 Hz devices), no sustained drops.
+### V5 — Fire color (US5 / SC-008)
+Tap the top-right settings button → choose Crimson → flame recolors immediately; choose Sapphire →
+blue flame; restart app → color persists.
+
+### V6 — Persistence (SC-006 / FR-014)
+Record scores, force-quit, reopen → scores + fire state intact (after the brief loading placeholder,
+FR-015 — no unlit flash).
+
+### V7 — Performance & fidelity (Perf Goals / SC-007 + design MUST DO)
+Profile on a 120 Hz device while logging: UI-thread FPS holds at panel refresh (≥120). Compare the
+running flame + calendar to the screenshots — it should look almost identical.
 
 ## Expected automated coverage
-- `fire.test.ts` — exhaustive engine behavior (the [fire-engine contract](./contracts/fire-engine.md)
-  table).
+- `fire.test.ts` — engine behavior (matches `BonfireDesign/logic.js`).
 - `dates.test.ts` — today-not-missed boundary.
-- `entriesStore.test.ts` — persistence round-trip (mocked AsyncStorage).
-- `BonfireScreen.test.tsx` — logging grows the fire; two consecutive misses extinguish it.
+- `flameModel.test.ts` — intensity curve + monotonic height.
+- `entriesStore.test.ts` / `settingsStore.test.ts` — round-trips (scores; flame color default Amber).
+- `BonfireScreen.test.tsx` — grow on score; 2 misses → out; swipe reveals calendar; color change
+  (native modules mocked).

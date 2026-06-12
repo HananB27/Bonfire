@@ -4,71 +4,69 @@
 
 ### Daily Entry (stored)
 
-One calendar day's productivity score. The only persisted data.
+One calendar day's productivity score.
 
-| Field   | Type                         | Rules                                                        |
-|---------|------------------------------|-------------------------------------------------------------|
-| `date`  | string (ISO `YYYY-MM-DD`)    | Local-date key. Unique — at most one entry per date.        |
-| `score` | integer 1–5                  | Must be 1,2,3,4,5. Rejected if outside range or future date.|
+| Field   | Type                      | Rules                                                      |
+|---------|---------------------------|-----------------------------------------------------------|
+| `date`  | string (ISO `YYYY-MM-DD`) | Local-date key. Unique — at most one entry per date.      |
+| `score` | integer 1–5               | 1,2,3,4,5 only. Rejected if out of range or a future date.|
 
-- A date with **no** entry is "missed".
-- Storage shape: a flat map `{ [dateKey: string]: score }` (compact, O(1) lookup, trivial to persist).
-- Scores for future dates are rejected at the input layer (`useEntries.setScore`).
+- Stored as a flat map `{ [dateKey]: score }`. A date with no entry is "missed".
+
+### Settings (stored) — NEW
+
+Persisted user preferences. For this version: only the flame color.
+
+| Field        | Type                                  | Rules                                  |
+|--------------|---------------------------------------|----------------------------------------|
+| `flameColor` | `'Amber' \| 'Crimson' \| 'Sapphire'`  | Defaults to `Amber` until the user picks. Persists across restarts. |
+
+- A flame palette maps a color name → 5 stops `{ ember, amber, gold, core, red }` (from
+  `BonfireDesign/app.jsx`), consumed by the Skia flame and the calendar heat ramp accents.
 
 ### Fire State (derived — never stored)
 
-Computed from **all** Daily Entries + today's local date. Recomputed on every change.
+Computed from all Daily Entries + today's local date. Recomputed on every change. Mirrors
+`BonfireDesign/logic.js`.
 
-| Field      | Type                          | Meaning                                                       |
-|------------|-------------------------------|---------------------------------------------------------------|
-| `lit`      | boolean                       | Whether the fire is currently burning.                        |
-| `strength` | integer ≥ 0                   | Total size of the current alive run (0 when out/unlit).       |
-| `perDay`   | `{ [dateKey]: contribution }` | Per-day strength contribution, for calendar intensity display.|
-| `status`   | `'unlit' \| 'lit' \| 'out'`   | `unlit` = no scores yet; `out` = extinguished by 2 misses.    |
+| Field      | Type                          | Meaning                                                  |
+|------------|-------------------------------|----------------------------------------------------------|
+| `state`    | `'unlit' \| 'lit' \| 'out'`   | `unlit` = never lit; `out` = was lit, then extinguished. |
+| `strength` | integer ≥ 0                   | Cumulative size of the current alive run (0 when not lit).|
+| `everLit`  | boolean                       | Whether any scored day exists (distinguishes unlit vs out).|
+| `label`    | `{ word, sub }`               | Caption from `fireLabel` (Spark/Kindling/Steady/Blazing/Roaring/Inferno, or Unlit/Out). |
 
-## Derived rules (the fire engine)
+> The calendar colors each day cell from its **raw score** (heat ramp `heat[score]`) and renders
+> `score` pips — it does NOT need a per-day contribution map, so `FireState` deliberately omits one.
 
-**Score → strength contribution** (per scored day):
+## Derived rules (the fire engine — matches the design)
 
-```
-1 → +0   (keeps the fire alive, adds no size)
-2 → +1
-3 → +2
-4 → +3
-5 → +4
-```
+**Score → contribution**: `contribution(score) = max(0, score − 1)` → 1→0, 2→1, 3→2, 4→3, 5→4.
 
-**Streak / extinguish walk** (deterministic, order-independent):
+**Streak / extinguish walk** (deterministic, order-independent): walk every day from the first
+scored day through today. A scored day adds its contribution; if the fire was out/unlit it first
+relights from a spark (strength 0) then adds. A past day with no score is a miss; today unscored is
+not a miss. Two consecutive missed past days extinguish the fire (strength → 0). The surviving run
+at today is the displayed fire. `state = alive ? 'lit' : everLit ? 'out' : 'unlit'`.
 
-1. Consider every date from the earliest scored day through **today**, in calendar order.
-2. A date strictly before today with no score is a **miss**; today (unscored) is **not** a miss.
-3. Track consecutive misses. On reaching **2 consecutive misses**, the fire goes **out**: the current
-   run ends and accumulated strength for that run is discarded (reset to 0).
-4. A scored day resets the consecutive-miss counter to 0 and adds its contribution to the current run.
-5. The final `strength` is the cumulative sum of contributions in the **last surviving run**;
-   `lit` is true iff that run is still alive at today.
-6. With no scores at all → `status: 'unlit'`, `lit: false`, `strength: 0`.
-
-Because the result depends only on the set of (date, score) pairs and today, recomputation after any
-add/edit/clear/backfill yields the identical state regardless of entry order (satisfies FR-010,
-SC-004).
+**Visual intensity** (for the flame, from `flameModel.ts`): `t = 1 − e^(−strength/14)`; flame height
+`= lit ? 60 + 268·t : 30`; `glow = lit ? 0.35 + 0.6·t : unlit ? 0.12 : 0`; `bright = 0.85 + 0.45·t`.
 
 ## State transitions
 
 ```
-unlit ──(first score)──▶ lit
-lit ──(score added/raised)──▶ lit (strength increases; score 1 keeps it equal)
-lit ──(1 missed past day)──▶ lit (survives)
-lit ──(2 consecutive missed past days)──▶ out (strength → 0)
-out ──(new score logged)──▶ lit (fresh run from 0)
-any ──(backfill/edit/clear past day)──▶ recompute from calendar (may flip lit/out)
+unlit ─(first score)→ lit
+lit ─(score added/raised)→ lit (strength up; score 1 keeps it equal)
+lit ─(1 missed past day)→ lit
+lit ─(2 consecutive missed past days)→ out (strength → 0, no flame/embers; logs+smoke shown)
+out ─(any new score, incl. 1)→ lit (fresh run from 0)
+any ─(backfill/edit/clear past day)→ recompute from calendar
 ```
 
 ## Validation rules (mapped to requirements)
 
-- Score range 1–5 integer only → FR-002, FR-003.
-- No future-date scores → FR-003, edge case "Future dates".
-- One entry per date → Daily Entry uniqueness.
-- Clearing a score makes the day missed again and triggers recompute → FR-004, FR-011, edge case
-  "Removing a score".
-- Persistence across sessions → FR-014.
+- Score 1–5 integer only; no future dates → FR-002, FR-003.
+- One entry per date; clearing makes the day missed → FR-004, FR-011.
+- Persistence of scores → FR-014; persistence of flame color → FR-017.
+- Loading placeholder until both stores load → FR-015.
+- Out-state shows no flame/embers (logs + smoke allowed) → FR-012, SC-010.

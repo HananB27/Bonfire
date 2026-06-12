@@ -1,4 +1,22 @@
 {
-  "name": "Bonfire",
-  "displayName": "Bonfire"
+  "expo": {
+    "name": "Bonfire",
+    "slug": "bonfire",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "bonfire",
+    "newArchEnabled": true,
+    "backgroundColor": "#070a14",
+    "splash": {
+      "backgroundColor": "#070a14",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    }
+  }
 }

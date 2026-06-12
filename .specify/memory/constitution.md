@@ -23,6 +23,12 @@ Templates / artifacts reviewed:
   ✅ .specify/memory/constitution.md (this file, written)
 
 Deferred / TODO: none. Ratification date set to first authoring date (2026-06-11).
+
+Amendment 2026-06-12 → v1.1.0 (MINOR): "Technology & Performance Standards" expanded to record the
+adopted stack — Expo (managed + prebuild), react-native-skia (flame), react-native-reanimated,
+react-native-gesture-handler, async-storage, jest-expo — superseding the prior "React Native 0.86"
+line. No principle added/removed; no governance change. Driven by the design-fidelity + ≥120 FPS
+requirements of the Bonfire Productivity Tracker feature.
 -->
 
 # Bonfire Constitution
@@ -114,10 +120,15 @@ fast startup are measurable, enforceable quality bars.
 
 ## Technology & Performance Standards
 
-- Stack: React Native 0.86, React 19, TypeScript (strict), Jest, ESLint, Prettier.
+- Stack: **Expo** (managed + prebuild) with React Native + TypeScript (strict), Jest
+  (`jest-expo`), ESLint, Prettier. The animated flame is rendered with **@shopify/react-native-skia**
+  and driven by **react-native-reanimated**; the calendar sheet uses **react-native-gesture-handler**.
+  Local persistence via **@react-native-async-storage/async-storage**. (RN/React versions follow the
+  adopted Expo SDK.)
 - Node >= 22.11.0 as declared in `package.json` engines.
 - New runtime dependencies MUST be justified in review (bundle size, maintenance,
-  native-linking cost) before adoption.
+  native-linking cost) before adoption. The Skia/Reanimated/gesture-handler/Expo adoption is
+  justified by the hard design-fidelity + ≥120 FPS requirements (see the active feature plan).
 - Performance-sensitive changes SHOULD include a before/after measurement (frame timing,
   render counts, or startup time) when feasible.
 
@@ -150,4 +161,4 @@ constitution wins.
 - Runtime/day-to-day development guidance lives in `CLAUDE.md` and the active feature plan;
   those documents MUST stay consistent with this constitution.
 
-**Version**: 1.0.0 | **Ratified**: 2026-06-11 | **Last Amended**: 2026-06-11
+**Version**: 1.1.0 | **Ratified**: 2026-06-11 | **Last Amended**: 2026-06-12

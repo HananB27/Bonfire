@@ -1,6 +1,6 @@
 # Implementation Plan: Bonfire Productivity Tracker
 
-**Branch**: `001-bonfire-productivity-tracker` | **Date**: 2026-06-11 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-bonfire-productivity-tracker` | **Date**: 2026-06-12 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Feature specification from `specs/001-bonfire-productivity-tracker/spec.md`
 
@@ -8,88 +8,111 @@
 
 ## Summary
 
-A static, single-view React Native (TypeScript) mobile app with no backend and no runtime network
-calls. The one screen shows an animated bonfire above a month calendar. The user assigns each day a
-productivity score of 1–5; the fire's size equals the cumulative sum of per-day strength
-contributions (1→+0, 2→+1, 3→+2, 4→+3, 5→+4) over the current alive run. One missed past day is
-survivable; two consecutive missed past days extinguish the fire and reset strength to zero. All
-fire state is derived deterministically from the calendar evaluated against today's date, so
-backfilling/editing past days recomputes the fire. Scores persist locally on-device.
+A static, offline, single-screen **Expo** (React Native + TypeScript) app. The whole screen is a
+living bonfire; the calendar rises over it as a swipe-up bottom sheet. The user scores each day 1–5;
+the fire's strength is the cumulative sum of per-day contributions (1→+0 … 5→+4) over the current
+alive run, two consecutive missed past days extinguish it (reset to 0), and any score relights it.
+A settings button (top-right) lets the user pick the flame color (Amber / Crimson / Sapphire), which
+persists. All state is derived deterministically from the local calendar; scores + the color choice
+persist on-device.
 
-Technical approach: framework-free pure domain logic (`src/domain/fire.ts`) for exhaustively
-testable streak/strength rules; thin reusable UI styled from design tokens taken from the fetched
-design artifact; on-device persistence behind a hook. The animated flame is the performance hero and
-MUST sustain ≥120 FPS via native-driver animation with zero per-frame JS-thread work.
+**This revision pivots the implementation to match a concrete design** (now provided locally in
+`BonfireDesign/`) **as closely as possible**, including the flame's look and animation, and mandates
+**Expo** as the build system. The flame is rendered with **React Native Skia** (GPU canvas: blurred
+gradient flame tongues, halo/ground-glow, ember particles, smoke, hearth logs/coals) driven by
+**Reanimated** on the UI thread to hold ≥120 FPS. The calendar sheet uses **gesture-handler +
+Reanimated**.
 
-## Design Source (MUST DO)
+##  Source (MUST DO)
 
-Before implementing any UI, you **MUST**:
+The design is now provided **locally** (the earlier hosted URL 404'd). It is the canonical
+look-and-feel reference and MUST be matched closely:
 
-1. **Fetch the design** from:
-   `https://api.anthropic.com/v1/design/h/eOB-vSewWG4d4riVK_jhKg?open_file=Bonfire.html`
-2. **Read its README / notes if present** (and any tokens in that bundle) to understand intended
-   structure, design tokens, and component breakdown. If the bundle has no README, infer the
-   structure and tokens directly from the rendered design — do not block on a missing README.
-3. **Implement `Bonfire.html`** — translate the design's relevant aspects (layout, spacing, color
-   palette, typography, flame visual states, calendar cell styling, ember/glow treatment, and
-   interaction affordances) into React Native components. The HTML/CSS is a faithful visual
-   reference, not a literal target.
+1. **Read the design bundle** in `BonfireDesign/`: `Bonfire.html`, `styles.css` (the full visual
+   system + keyframes), `fire.jsx` (flame composition + ember/transition logic), `calendar.jsx`
+   (sheet + month grid + picker), `app.jsx` (layout, flame palettes, dev pill), `logic.js` (fire
+   math — matches our engine), and the reference images in `BonfireDesign/screenshots/`
+   (`open.png`, `open2.png`, `open3.png`).
+2. **Match it closely.** The delivered app MUST look almost identical to the screenshots — the
+   full-screen flame (layered blurred gradient tongues + halo + ground-glow + rising embers + caption
+   "INFERNO / strength N"), the dark navy night background, and the calendar bottom sheet (heat-ramp
+   day cells with pips, today ring, missed dots, month nav, inline 1–5 picker).
+3. **Flame fidelity is a hard requirement.** Reproduce the flame's shape, color ramp, glow, flicker
+   and ignite/grow/out transitions. The CSS uses blur + radial/linear gradients + `mix-blend-mode:
+   screen` + brightness — none of which plain RN views do well, so the flame MUST be built with Skia
+   (see research.md R2).
 
-Hard gate: the delivered UI MUST match the fetched design. Where design and spec disagree on
-**mechanics**, the spec wins; where they concern **look-and-feel**, the design wins. The `DesignSync`
-tool is available to pull `Bonfire.html` and its README into the workspace.
+Where the design and spec disagree: **spec wins on mechanics** (e.g. FR-020 caps forward month
+navigation at the current month even though the design's `next` button is unrestricted; the design's
+top-right dev pill is replaced by the FR-016 settings button, with the advance-day control kept as a
+`__DEV__`-only affordance), **design wins on look-and-feel.**
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.8 (strict mode), React 19.2, React Native 0.86
+**Language/Version**: TypeScript (strict), React + React Native via **Expo SDK** (adopt the Expo SDK
+whose bundled RN/React is current; align the project's RN version to it — see research.md R1).
 
-**Primary Dependencies**: react-native, react-native-safe-area-context (already present). Add a local
-key/value store for persistence (`@react-native-async-storage/async-storage`). Flame animation uses
-React Native's built-in `Animated` API with `useNativeDriver: true`; no game engine, no Reanimated
-required for v1 (revisit only if profiling shows the native driver cannot hold 120 FPS — see
-research.md). Hand-built calendar grid (no third-party calendar library) for full styling control.
+**Primary Dependencies**:
+- **expo** (build system / managed + prebuild, config plugins for native modules)
+- **@shopify/react-native-skia** — the flame (GPU canvas: gradients, blur, blend modes, ember
+  particles). The single most important dependency for design fidelity + 120 FPS.
+- **react-native-reanimated** — UI-thread animation (flame flicker/ignite/grow via shared values,
+  sheet drag) so frames don't depend on JS.
+- **react-native-gesture-handler** — swipe-up/down to open/close the calendar sheet.
+- **expo-linear-gradient** — simple gradients (sheet backgrounds, buttons) where Skia is overkill.
+- **@react-native-async-storage/async-storage** — local persistence (scores + settings). (Works
+  under Expo; `expo-sqlite`/MMKV not needed for this tiny dataset.)
+- **react-native-safe-area-context** — safe-area insets (already present, Expo-supported).
 
-**Storage**: Local device storage only (AsyncStorage). One persisted map of Daily Entries keyed by
-ISO date `YYYY-MM-DD` → score. No backend, no accounts, no sync.
+**Storage**: Local only. Two persisted values: the date→score map and the chosen flame color. No
+backend, no network at runtime.
 
-**Testing**: Jest + react-test-renderer (already configured). The pure fire engine is unit tested
-exhaustively; components get render/behavior tests.
+**Testing**: Jest (`jest-expo` preset) + react-test-renderer. The pure fire engine + date helpers
+are unit-tested exhaustively; components get behavior/render tests with Skia/Reanimated/gesture
+mocked.
 
-**Target Platform**: iOS and Android (React Native), mobile portrait, offline.
+**Target Platform**: iOS + Android via Expo, mobile portrait, offline.
 
-**Project Type**: Static single-view mobile app (client-only, offline-first).
+**Project Type**: Static single-screen mobile app (client-only, offline-first), design-faithful.
 
-**Performance Goals**: Animated flame sustains **≥120 FPS** on 120 Hz-capable devices (gracefully
-capped to the panel refresh rate on 60 Hz devices); fire visibly updates within ~1s of a score
-change (SC-001). This exceeds the constitution's 60 FPS floor (Principle V).
+**Performance Goals**: Flame sustains **≥120 FPS** on 120 Hz devices (Skia GPU rendering + Reanimated
+UI-thread driving; no per-frame JS). Fire updates visibly < 3s after a score change (SC-001).
 
-**Constraints**: Fully offline — **no calls to external endpoints at runtime** (design fetch is a
-build-time/dev activity only); cold start to interactive < 3s; exactly two surfaces (flame +
-calendar), no other screens/menus.
+**No degrade path (fidelity is non-negotiable)**: the flame is ALWAYS rendered at full design fidelity
+— there is no quality-reduction/device-tiered fallback (no dropping blur passes, layers, or
+particles). The full-fidelity flame is engineered to hold ≥120 FPS via Skia + Reanimated; if a
+low-end device cannot sustain it at full fidelity, **fidelity is preserved and the frame rate may
+fall** (fidelity outranks frame rate). 120 FPS remains the target on capable hardware.
 
-**Scale/Scope**: Single user, single device. One screen, ~6–10 components, one local entry per day
-(dataset stays tiny even over years).
+**Constraints**: Fully offline (design files are a build-time reference, not shipped network calls);
+cold start < 3s with a loading placeholder until scores load (FR-015); the flame is the hero, the
+calendar is one swipe away; no day/month navigation except backward month paging (FR-020).
+
+**Scale/Scope**: Single user, single device. One screen + a settings surface + a calendar sheet;
+one local entry per day.
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- **I. Code Quality & Maintainability**: PASS — strict TS, no `any`, `npm run lint` clean, small
-  single-purpose functions; reusable components; fire rules isolated in a pure module.
-- **II. Beginner-Readable Code (Explanatory Comments)**: PASS (planned) — every component, hook, and
-  fire-engine function gets a header comment (purpose/inputs/outputs); the streak walk and
-  cumulative-sum logic get plain-language inline comments. Hard requirement for this project.
-- **III. Testing Standards (NON-NEGOTIABLE)**: PASS (planned) — fire engine gets exhaustive unit
-  tests (0/1/2+ consecutive misses, backfill order-independence, reset-to-zero, score→strength
-  mapping); components get behavior tests; bug fixes carry regression tests; all deterministic.
-- **IV. User Experience Consistency**: PASS (planned) — single design-token source from the fetched
-  design; unlit/lit/out states all handled; accessible labels on day cells and score picker;
-  identical iOS/Android behavior.
-- **V. Performance Requirements**: PASS (planned, raised bar) — native-driver `Animated`, memoized
-  calendar cells, fire state derived once per change. Target 120 FPS exceeds the 60 FPS floor. No
-  virtualization needed (≤ ~42 cells visible).
+- **I. Code Quality & Maintainability**: PASS — strict TS, no `any`, lint-clean, small reusable
+  components; the pure fire engine stays framework-free.
+- **II. Beginner-Readable Code (Explanatory Comments)**: PASS (planned) — every component/hook/engine
+  function gets a header + plain-language inline comments; the Skia flame math (intensity curve,
+  gradient stops, particle spawn) is commented heavily since it is the least obvious code.
+- **III. Testing Standards (NON-NEGOTIABLE)**: PASS (planned) — engine unit tests (the design's
+  `logic.js` behavior table), date tests, persistence (scores + color) tests, and screen behavior
+  tests with native modules mocked.
+- **IV. User Experience Consistency**: PASS (planned) — a single token source ported from
+  `styles.css` (`:root` vars + heat ramp + palettes); loading/unlit/lit/out states all handled;
+  accessibility labels on cells, picker, settings, and the flame.
+- **V. Performance Requirements**: PASS (planned, raised bar) — Skia + Reanimated hold ≥120 FPS
+  (exceeds the 60 FPS floor). This is the reason Skia is chosen over stacked blurred RN views, which
+  could not hold frame rate with this many animated blurred layers.
 
-No violations. Complexity Tracking omitted.
+**Complexity note**: this revision adds native dependencies (Skia, Reanimated, gesture-handler) and
+migrates to Expo. Justified below in Complexity Tracking — required by the hard design-fidelity +
+120 FPS requirements, with no simpler alternative that looks like the design.
 
 ## Project Structure
 
@@ -97,59 +120,91 @@ No violations. Complexity Tracking omitted.
 
 ```text
 specs/001-bonfire-productivity-tracker/
-├── spec.md              # Feature specification (done)
-├── design-prompt.md     # Prompt used to generate the Claude design (done)
-├── plan.md              # This file (/speckit-plan output)
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-├── contracts/           # Phase 1 output — fire-engine + storage contracts
+├── spec.md, plan.md, research.md, data-model.md, quickstart.md
+├── design-prompt.md          # original prompt (superseded by BonfireDesign/)
+├── design/README.md          # fetch-attempt note (now superseded — design is local)
+├── contracts/
 │   ├── fire-engine.md
-│   └── entries-store.md
-└── tasks.md             # Phase 2 output (/speckit-tasks — NOT created here)
+│   ├── entries-store.md
+│   ├── settings-store.md     # NEW — persisted flame color
+│   └── flame-and-theme.md    # NEW — flame intensity/visual contract + palettes
+└── tasks.md                  # /speckit-tasks output
 ```
+
+Canonical design reference lives at repo root in **`BonfireDesign/`** (read-only source of truth).
 
 ### Source Code (repository root)
 
 ```text
-App.tsx                          # Root: SafeArea provider + BonfireScreen
+app.config.ts / app.json         # Expo config (name, icon, plugins: skia, reanimated, gesture-handler)
+index.ts                         # Expo entry (registerRootComponent)
+App.tsx                          # SafeArea + GestureHandlerRootView + BonfireScreen
 
 src/
 ├── domain/
-│   ├── fire.ts                  # PURE engine: (entries, today) → FireState {lit, strength, perDay}
-│   │                           #   score→strength (1→0,2→1,3→2,4→3,5→4); streak walk;
-│   │                           #   2-consecutive-miss extinguish + reset-to-zero; order-independent
-│   └── dates.ts                 # Local-date helpers: today(), isPast(), toKey(), monthGrid()
+│   ├── fire.ts                  # PURE engine (matches BonfireDesign/logic.js): computeFire, contribution,
+│   │                           #   classifyDay, fireLabel (Unlit/Out/Spark/Kindling/Steady/Blazing/Roaring/Inferno)
+│   └── dates.ts                 # local-date helpers (ymd/parse/addDays/diffDays/monthGrid)
 ├── data/
-│   └── entriesStore.ts          # AsyncStorage load/save of the date→score map (only storage touch)
+│   ├── entriesStore.ts          # AsyncStorage: date→score map
+│   └── settingsStore.ts         # AsyncStorage: flame color choice
 ├── hooks/
-│   └── useEntries.ts            # Loads entries; exposes setScore/clearScore; persists; memoizes fire
+│   ├── useEntries.ts            # load/setScore/clearScore + memoized fire + `ready`
+│   └── useSettings.ts           # load/setFlameColor + `ready`
+├── theme/
+│   ├── tokens.ts                # ported from styles.css :root (bg, ink, heat ramp, line)
+│   └── palettes.ts              # Amber/Crimson/Sapphire flame palettes (ember/amber/gold/core/red)
 ├── components/
 │   ├── Bonfire/
-│   │   ├── Flame.tsx            # Native-driver animated flame; strength→size/glow; spark & out states
-│   │   └── flameModel.ts        # Pure strength→visual params (size, glow, particle count) curves
+│   │   ├── Flame.tsx            # Skia <Canvas>: flame tongues (gradients+blur+screen blend), halo,
+│   │   │                       #   ground-glow, brightness; spark/lit/out; ignite/grow transitions
+│   │   ├── Embers.tsx           # Skia ember particle system (spawn rate ~ intensity) + smoke (out)
+│   │   ├── Hearth.tsx           # logs + coals (cold/grey when out)
+│   │   ├── flameModel.ts        # PURE: strength→intensity (1−e^(−s/14)), height, glow, particle rate
+│   │   └── FireCaption.tsx      # word/sub/strength caption from fireLabel
 │   ├── Calendar/
-│   │   ├── CalendarMonth.tsx    # Month grid + month navigation
-│   │   ├── DayCell.tsx          # memo() day cell: scored/missed/today/future styling + tap target
-│   │   └── ScorePicker.tsx      # Inline 1–5 picker + clear
-│   └── theme/
-│       └── tokens.ts            # Colors/typography/spacing from the fetched Bonfire.html design
+│   │   ├── CalendarSheet.tsx    # swipe-up/down bottom sheet over the fire (gesture-handler+Reanimated),
+│   │   │                       #   lifts/dims the flame as it opens
+│   │   ├── MonthGrid.tsx        # month grid + ‹ › nav (next disabled at current month per FR-020)
+│   │   ├── DayCell.tsx          # memo cell: scored(heat+pips)/today(ring)/missed(dot)/future(dim)/blank
+│   │   └── ScorePickerBar.tsx   # inline 1–5 heat picker + Clear (slides up inside the sheet)
+│   └── Settings/
+│       └── SettingsSheet.tsx    # top-right button → choose flame color (Amber/Crimson/Sapphire)
 └── screens/
-    └── BonfireScreen.tsx        # Composes Flame (top) + CalendarMonth (bottom)
+    └── BonfireScreen.tsx        # full-screen Flame + CalendarSheet + settings button + __DEV__ advance-day
 
 __tests__/
-├── fire.test.ts                 # Exhaustive fire-engine unit tests (the oracle from contracts/)
-├── dates.test.ts                # Miss boundary: today not missed until past
-├── entriesStore.test.ts         # Persistence round-trip (mocked AsyncStorage)
-└── BonfireScreen.test.tsx       # Logging grows the fire; 2 consecutive misses → out
+├── fire.test.ts                 # engine oracle (BonfireDesign/logic.js behavior)
+├── dates.test.ts                # today-not-missed boundary
+├── flameModel.test.ts           # intensity curve + monotonic strength→height
+├── entriesStore.test.ts         # scores round-trip
+├── settingsStore.test.ts        # flame-color round-trip + default Amber
+└── BonfireScreen.test.tsx       # score grows fire; 2 misses → out; swipe reveals calendar; color change
 ```
 
-**Structure Decision**: Single React Native project, no API tier (static/client-only). Behavioral
-rules live in framework-free `src/domain` so they are exhaustively unit-testable without rendering.
-UI is reusable components in `src/components` composed by one `BonfireScreen`, styled from
-`theme/tokens.ts` derived from the fetched design. All storage access is isolated in `src/data`
-behind `useEntries`, so components never touch persistence directly.
+**Structure Decision**: One Expo app, no API tier. Behavioral rules stay in framework-free
+`src/domain` (mirroring `BonfireDesign/logic.js`) for exhaustive unit testing. The flame is isolated
+in Skia components under `src/components/Bonfire` with a pure `flameModel.ts` for the math. Theme
+tokens + palettes are ported directly from `styles.css`/`app.jsx`. Persistence (scores + settings)
+is isolated in `src/data` behind hooks.
+
+## Phasing
+
+**Phase 0 — Research (research.md)**: Expo migration from bare RN; Skia flame approach (mapping the
+CSS layers to Skia); Reanimated 120 FPS strategy; gesture-handler sheet; ember particle system;
+palette/token port; aligning the engine to `logic.js`.
+
+**Phase 1 — Design artifacts**: `data-model.md` (Daily Entry, Settings.flameColor, derived Fire State
+with state/strength/everLit + label); `contracts/` (fire-engine, entries-store, **settings-store**,
+**flame-and-theme**); `quickstart.md` (Expo run/test/validation incl. design side-by-side check).
+
+**Phase 2 — Tasks** (`/speckit-tasks`): re-generated to cover Expo setup, Skia flame, sheet calendar,
+settings/color, particles, loading state, and the design-fidelity review against the screenshots.
 
 ## Complexity Tracking
 
-No constitution violations — section intentionally empty.
+| Violation / addition | Why needed | Simpler alternative rejected because |
+|---|---|---|
+| Migrate to **Expo** | User mandate; smooth native-module + build tooling for Skia/Reanimated | Bare RN CLI works but the user explicitly requires Expo |
+| **react-native-skia** | The flame must look almost identical to the design (blur, gradients, screen blend, glow) and hold ≥120 FPS | Stacked blurred RN `Animated.View`s (the prior build) cannot reproduce the blend/blur look or hold frame rate |
+| **reanimated** + **gesture-handler** | UI-thread flame animation (120 FPS) and the swipe-up calendar sheet | JS-driven `Animated` drops frames with this many layers; sheet drag needs native gestures |
