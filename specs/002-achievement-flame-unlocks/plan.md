@@ -87,7 +87,7 @@ local entry per day, history kept indefinitely.
   are framework-free pure modules in `src/domain`; small, single-purpose UI components.
 - **II. Beginner-Readable Code (Explanatory Comments)**: PASS (planned) — every new module/hook/
   component gets a header + plain-language inline comments; the achievement evaluators (run-metrics
-  walk, time-window math, comeback detection) are the least obvious code and will be commented
+  walk, time-window math, and timeline scans) are the least obvious code and will be commented
   heavily, as the constitution requires.
 - **III. Testing Standards (NON-NEGOTIABLE)**: PASS (planned) — pure-engine oracle tests for every
   achievement kind (streak satisfy/relock, time unlock/expire/re-earn/backfill-expired, fire-out
@@ -134,7 +134,7 @@ src/
 │   ├── fire.ts                 # UNCHANGED (computeFire stays the source of truth)
 │   ├── dates.ts                # UNCHANGED (+maybe a small `startOfWeek` helper for week conditions)
 │   ├── fireMetrics.ts          # NEW pure: one deterministic walk → run boundaries + metrics +
-│   │                           #   per-day timeline + comeback events (today injected)
+│   │                           #   per-day timeline (today injected)
 │   ├── flames.ts               # NEW data: the editable catalog (id, tier, type, gradient, embered,
 │   │                           #   condition kind+params, window). EDIT THIS to add/tune a flame.
 │   └── achievements.ts         # NEW pure: evaluate(catalog, entries, today, fire) →
@@ -163,7 +163,7 @@ src/
 
 __tests__/
 ├── fire.test.ts                # UNCHANGED
-├── fireMetrics.test.ts         # NEW: run days / unbroken chain / counts / comebacks oracle
+├── fireMetrics.test.ts         # NEW: run days / unbroken chain / counts oracle
 ├── achievements.test.ts        # NEW: every achievement kind; relock; expire; re-earn; backfill-expired;
 │                               #   fire-out voids all; order-independence property
 ├── flames.catalog.test.ts      # NEW: ids unique, embered present, difficulty ordering (SC-009)
@@ -182,8 +182,8 @@ achievement layer unit-testable without React.
 **Phase 0 — Research (`research.md`)**: the run-metrics set and single-walk algorithm; the
 time-window / achievement-day math (incl. backfill-expired and re-earn reset, D+W inclusive); how
 "fire-out voids all" composes with derived state; the embered-palette derivation (desaturate without
-new deps); the full-screen swipe-to-open gesture without stealing taps; resolving the two tunable
-spec items (Ember "average ≤2" denominator, Phoenix comeback scope) as concrete starting rules.
+new deps); the full-screen swipe-to-open gesture without stealing taps; the positive-achievement
+guardrails that ban low-score and intentional streak-break requirements.
 
 **Phase 1 — Design artifacts**: `data-model.md` (FlameStyle, Achievement condition kinds, RunMetrics,
 AchievementState, Settings v2); `contracts/` (flame-catalog, achievement-engine, settings-store v2,

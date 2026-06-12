@@ -83,6 +83,27 @@ test('catalog has the expected 20 flames (1 base + 8 streak + 11 time)', () => {
   expect(FLAMES.filter(f => f.tier === 'time')).toHaveLength(11);
 });
 
+test('unlock requirements use only positive achievement condition kinds', () => {
+  const allowedKinds = new Set([
+    'runDays',
+    'runStrength',
+    'strongDaysInRun',
+    'runStrengthAndDays',
+    'consecutivePerfect',
+    'unbrokenChain',
+    'unbrokenChainMinScore',
+    'perfectCalendarWeek',
+    'consecutivePerfectWeeks',
+    'crossStrength',
+  ]);
+
+  for (const f of FLAMES) {
+    const a = f.achievement;
+    if (!a) continue;
+    expect(allowedKinds.has(a.kind)).toBe(true);
+  }
+});
+
 test('flameById falls back to the base flame for an unknown id', () => {
   expect(flameById('does-not-exist').id).toBe(BASE_FLAME_ID);
   expect(flameById('voidfire').id).toBe('voidfire');

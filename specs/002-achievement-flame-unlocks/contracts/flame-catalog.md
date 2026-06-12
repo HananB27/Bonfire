@@ -11,8 +11,7 @@ export type FlameTier = 'base' | 'streak' | 'time';
 export type ConditionKind =
   | 'runDays' | 'runStrength' | 'strongDaysInRun' | 'runStrengthAndDays'      // streak
   | 'consecutivePerfect' | 'unbrokenChain' | 'unbrokenChainMinScore'          // time
-  | 'lowBurnRun' | 'perfectCalendarWeek' | 'consecutivePerfectWeeks'
-  | 'comebackStrength' | 'comebackCount' | 'crossStrength';
+  | 'perfectCalendarWeek' | 'consecutivePerfectWeeks' | 'crossStrength';
 
 export interface Achievement {
   type: 'streak' | 'time';
@@ -60,8 +59,8 @@ export const EMBERED_DIM = 0.45;                                // glow/brightne
 ## Catalog content
 
 Exactly the flames in **spec Appendix A** (1 base + 8 streak + 11 time = **20 flames**) with these
-`kind`/`params`/`windowDays`. **`ember` and `phoenix` follow the precise rules in research R6**, not the
-looser Appendix prose (Ember avg ≤ 2 over scored days in the chain; Phoenix = lifetime comeback count):
+`kind`/`params`/`windowDays`. No unlock condition may require low scores, low averages, lowered scores,
+or intentionally breaking/extinguishing a streak/fire (FR-011a, FR-011b):
 
 | id | tier | kind | params | window |
 |----|------|------|--------|--------|
@@ -76,14 +75,14 @@ looser Appendix prose (Ember avg ≤ 2 over scored days in the chain; Phoenix = 
 | ghostlight | streak | runStrengthAndDays | {s:80,n:14} | — |
 | toxic | time | consecutivePerfect | {n:3} | 7 |
 | wisp | time | unbrokenChainMinScore | {n:5,min:3} | 10 |
-| ember | time | lowBurnRun | {n:10,maxAvg:2} | 14 |
-| spectral | time | comebackStrength | {s:30,withinDays:7} | 10 |
+| ember | time | unbrokenChainMinScore | {n:10,min:3} | 14 |
+| spectral | time | crossStrength | {n:30} | 10 |
 | frostfire | time | perfectCalendarWeek | {minScore:1} | 14 |
 | inferno | time | perfectCalendarWeek | {minScore:4} | 14 |
 | solfire | time | crossStrength | {n:100} | 14 |
 | voidfire | time | unbrokenChain | {n:14} | 21 |
 | aurora | time | unbrokenChain | {n:30} | 21 |
-| phoenix | time | comebackCount | {times:3,eachStrength:30} | 21 |
+| phoenix | time | crossStrength | {n:150} | 21 |
 | nebula | time | consecutivePerfectWeeks | {weeks:2,minScore:4,minPerfect:10} | 21 |
 
 ## Invariants (`flames.catalog.test.ts` — the oracle)
@@ -95,3 +94,4 @@ looser Appendix prose (Ember avg ≤ 2 over scored days in the chain; Phoenix = 
 - Every `time` achievement has `windowDays` (a positive integer); no streak achievement has one.
 - Every flame has `palette` and `embered` with all 5 stops as valid hex.
 - `requirement` non-empty for every non-base flame.
+- No achievement uses a banned low-score or intentional streak-break condition/text (FR-011a, FR-011b).

@@ -15,9 +15,9 @@ npx expo start         # then press i / a, or scan with a dev client
 
 | Suite | Proves |
 |-------|--------|
-| `fireMetrics.test.ts` | run days / unbroken chain / strong+perfect counts / comebacks are correct & order-independent |
+| `fireMetrics.test.ts` | run days / unbroken chain / strong+perfect counts are correct & order-independent |
 | `achievements.test.ts` | every condition kind; streak relock on out & on edit; time unlock/expire (D+W inclusive); fire-out voids time flames; re-earn resets window; backfill-expired stays locked; order-independence (SC-002–SC-005) |
-| `flames.catalog.test.ts` | ids unique, one base, embered+palette present, time flames have windows, rarity strictly ascending (SC-009) |
+| `flames.catalog.test.ts` | ids unique, one base, embered+palette present, time flames have windows, rarity strictly ascending, no low-score or intentional streak-break requirements (SC-009, FR-011a/b) |
 | `settingsStore.test.ts` | v1→v2 migration, default `amber`, round-trip (SC-007) |
 | `FlameGallery.test.tsx` | locked teaser + progress + countdown; equip locked → embered on screen (SC-006, SC-008) |
 | `fire.test.ts` | UNCHANGED — 001 engine still green (regression guard) |

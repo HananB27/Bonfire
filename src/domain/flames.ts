@@ -41,11 +41,8 @@ export type ConditionKind =
   | 'consecutivePerfect'
   | 'unbrokenChain'
   | 'unbrokenChainMinScore'
-  | 'lowBurnRun'
   | 'perfectCalendarWeek'
   | 'consecutivePerfectWeeks'
-  | 'comebackStrength'
-  | 'comebackCount'
   | 'crossStrength';
 
 // The unlock condition tied to a flame.
@@ -105,9 +102,9 @@ function time(
 
 /**
  * THE CATALOG — rarity ascending. Edit here to tune the whole feature.
- * (`ember` and `phoenix` follow the precise research-R6 rules, not looser prose:
- * Ember = a 10-day daily-logged chain averaging ≤ 2; Phoenix = lifetime count of
- * 3 comebacks each rebuilt to strength ≥ 30.)
+ * Unlocks must always reward stronger scores and longer continuity. Do not add
+ * conditions that require keeping scores low or intentionally letting the fire go
+ * out.
  */
 export const FLAMES: readonly FlameStyle[] = [
   // ---- Base (always unlocked) ----
@@ -137,9 +134,9 @@ export const FLAMES: readonly FlameStyle[] = [
   flame('wisp', 'Wisp', 'time', 10, ['#DFFFF6', '#5FE0C0', '#1E7F86'],
     time('unbrokenChainMinScore', { n: 5, min: 3 }, 10, 'Log 5 days in a row, none below 3')),
   flame('ember', 'Ember', 'time', 11, ['#FFB060', '#E8501E', '#5C0E08'],
-    time('lowBurnRun', { n: 10, maxAvg: 2 }, 14, 'Log 10 days in a row averaging 2 or less')),
+    time('unbrokenChainMinScore', { n: 10, min: 3 }, 14, 'Log 10 days in a row, all 3 or higher')),
   flame('spectral', 'Spectral', 'time', 12, ['#F0FFFF', '#7FFFE0', '#2E9FB0'],
-    time('comebackStrength', { s: 30, withinDays: 7 }, 10, 'Relight and rebuild to strength 30 within 7 days')),
+    time('crossStrength', { n: 30 }, 10, 'Reach run strength 30')),
   flame('frostfire', 'Frostfire', 'time', 13, ['#FFFFFF', '#9FE8FF', '#2E7BD6'],
     time('perfectCalendarWeek', { minScore: 1 }, 14, 'Score every day of one calendar week')),
   flame('inferno', 'Inferno', 'time', 14, ['#FFFFFF', '#FFD24A', '#FF5A00'],
@@ -151,7 +148,7 @@ export const FLAMES: readonly FlameStyle[] = [
   flame('aurora', 'Aurora', 'time', 17, ['#B8FFD9', '#5FE0C0', '#FF7AD9', '#8B2FE0'],
     time('unbrokenChain', { n: 30 }, 21, 'Log 30 days in a row'), { hueDeg: 40, ms: 12000 }),
   flame('phoenix', 'Phoenix', 'time', 18, ['#FFFFFF', '#FFD24A', '#FF5A00', '#4A4A4A'],
-    time('comebackCount', { times: 3, eachStrength: 30 }, 21, 'Revive the fire to strength 30 three separate times')),
+    time('crossStrength', { n: 150 }, 21, 'Reach run strength 150')),
   flame('nebula', 'Nebula', 'time', 19, ['#FFE066', '#7FFFE0', '#2E9FB0', '#2A0A4A'],
     time('consecutivePerfectWeeks', { weeks: 2, minScore: 4, minPerfect: 10 }, 21,
       'Two strong weeks in a row (every day 4+, 10+ perfect days)'), { hueDeg: 60, ms: 16000 }),

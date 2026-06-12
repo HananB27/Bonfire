@@ -121,11 +121,6 @@ function evalCondition(
   today: DateKey,
 ): CondResult {
   const p = ach.params;
-  // Day → snapshot lookup for the comeback scans. Built lazily so the 18 flames
-  // that never need it don't pay for the map on every evaluation.
-  const pointOf = (): Map<DateKey, DayPoint> =>
-    new Map(m.timeline.map(dp => [dp.date, dp]));
-
   switch (ach.kind) {
     // ---- streak kinds (read the current run / strength) ----
     case 'runDays':
@@ -172,29 +167,6 @@ function evalCondition(
       return { complete: day !== null, progress: { value: best, target: p.n }, completionDay: day ?? undefined };
     }
 
-    case 'lowBurnRun': {
-      // Latest day ending an unbroken scored chain of length ≥ n whose running
-      // average over the whole chain is ≤ maxAvg (research R6).
-      let len = 0;
-      let sum = 0;
-      let best = 0;
-      let day: DateKey | null = null;
-      for (const dp of m.timeline) {
-        if (dp.score !== undefined) {
-          len += 1;
-          sum += dp.score;
-          if (sum / len <= p.maxAvg) {
-            if (len > best) best = len; // progress: longest qualifying low-burn chain
-            if (len >= p.n) day = dp.date;
-          }
-        } else {
-          len = 0;
-          sum = 0;
-        }
-      }
-      return { complete: day !== null, progress: { value: best, target: p.n }, completionDay: day ?? undefined };
-    }
-
     case 'perfectCalendarWeek': {
       const weeks = summariseWeeks(m.timeline, today, p.minScore);
       let day: DateKey | null = null;
@@ -225,44 +197,6 @@ function evalCondition(
         }
       }
       return { complete: day !== null, progress: { value: bestRun, target: p.weeks }, completionDay: day ?? undefined };
-    }
-
-    case 'comebackStrength': {
-      // Latest comeback that reached strength ≥ s within `withinDays` of relight.
-      const points = pointOf();
-      let day: DateKey | null = null;
-      let best = 0;
-      for (const cb of m.comebacks) {
-        const limit = addDays(cb.relightDay, p.withinDays);
-        for (let d = cb.relightDay; d <= cb.endDay && d <= limit; d = addDays(d, 1)) {
-          const strength = points.get(d)?.strength ?? 0;
-          if (strength > best) best = strength;
-          if (strength >= p.s) {
-            day = d; // first qualifying day of this comeback; latest comeback wins
-            break;
-          }
-        }
-      }
-      return { complete: day !== null, progress: { value: best, target: p.s }, completionDay: day ?? undefined };
-    }
-
-    case 'comebackCount': {
-      // Count comebacks whose run reached `eachStrength`; the condition completes
-      // on the reach-day of the LATEST qualifying comeback once ≥ `times` qualify.
-      const points = pointOf();
-      let qualifying = 0;
-      let latestReach: DateKey | null = null;
-      for (const cb of m.comebacks) {
-        for (let d = cb.relightDay; d <= cb.endDay; d = addDays(d, 1)) {
-          if ((points.get(d)?.strength ?? 0) >= p.eachStrength) {
-            qualifying += 1;
-            latestReach = d;
-            break;
-          }
-        }
-      }
-      const day = qualifying >= p.times ? latestReach : null;
-      return { complete: day !== null, progress: { value: qualifying, target: p.times }, completionDay: day ?? undefined };
     }
 
     case 'crossStrength': {

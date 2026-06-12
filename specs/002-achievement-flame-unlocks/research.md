@@ -17,9 +17,7 @@ RunMetrics {
   unbrokenChain: number        // consecutive scored days (no gaps) ending at the latest scored day
   strongDaysInRun: number      // scored ≥4 in the run
   perfectDaysInRun: number     // scored ===5 in the run
-  scoreSumInRun: number        // Σ score over scored days in the run (for "average score")
-  // history-wide (used by time achievements that scan past completions):
-  comebacks: { relightDay: DateKey; endDay: DateKey; peak: number }[]   // threshold-day derived from timeline
+  scoreSumInRun: number        // Σ score over scored days in the run
 }
 ```
 
@@ -88,14 +86,11 @@ kind + numeric params. Kinds:
 | `strongDaysInRun` | `n` | streak | Strontium(5) |
 | `runStrengthAndDays` | `s,n` | streak | Ghostlight(80 & 14) |
 | `consecutivePerfect` | `n` | time | Toxic(3) |
-| `unbrokenChainMinScore` | `n,min` | time | Wisp(5,≥3) |
+| `unbrokenChainMinScore` | `n,min` | time | Wisp(5,≥3), Ember(10,≥3) |
 | `unbrokenChain` | `n` | time | Voidfire(14), Aurora(30) |
-| `lowBurnRun` | `n,maxAvg` | time | Ember(10, avg≤2) |
 | `perfectCalendarWeek` | `minScore` | time | Frostfire(any), Inferno(≥4) |
 | `consecutivePerfectWeeks` | `weeks,minScore,minPerfect` | time | Nebula(2,≥4,10) |
-| `comebackStrength` | `s,withinDays` | time | Spectral(30,7) |
-| `comebackCount` | `times,eachStrength` | time | Phoenix(3,30) |
-| `crossStrength` | `n` | time | Solfire(100) |
+| `crossStrength` | `n` | time | Spectral(30), Solfire(100), Phoenix(150) |
 
 Adding a flame = append a catalog row referencing one kind. Tuning = change a number or `window`.
 
@@ -103,19 +98,18 @@ Adding a flame = append a catalog row referencing one kind. Tuning = change a nu
 every condition stays unit-testable. **Alternatives**: free-form predicate per flame — rejected: harder
 to test/diff and invites duplicated walk logic.
 
-## R6 — Tunable spec items resolved to concrete starting rules
+## R6 — Positive-achievement guardrails
 
-Two items the spec flagged as tunable, fixed here so the engine is testable (still one-line editable):
+**Decision**: Catalog conditions must always reward stronger scores, higher cumulative strength, and
+longer continuity. They must not require low averages, intentionally low scores, lowered scores, or
+breaking/extinguishing a streak/fire. The amended flames now use positive unlocks:
 
-- **Ember `lowBurnRun(10, maxAvg=2)`**: condition completes on day `d` when the unbroken chain ending
-  at `d` has length ≥ 10 **and** `scoreSum/scoreCount ≤ 2` over those 10+ days (denominator = scored
-  days in the chain). Time flame, window 14. (Average is over the *daily-logged chain*, not calendar
-  span — matches "daily-logged".)
-- **Phoenix `comebackCount(times=3, eachStrength=30)`**: count history `comebacks` where a relight was
-  followed by the run reaching strength ≥ 30 (before going out again). achievementDay = the day the
-  **3rd** such comeback reaches ≥ 30. Window 21 from there. Re-earn needs a 4th, etc. (lifetime count).
+- **Ember `unbrokenChainMinScore(10, min=3)`**: 10 consecutive scored days, all 3 or higher. Window 14.
+- **Spectral `crossStrength(30)`**: latest day the current run crosses strength 30. Window 10.
+- **Phoenix `crossStrength(150)`**: latest day the current run crosses strength 150. Window 21.
 
-**Rationale**: Concrete, deterministic, derivable from `RunMetrics.comebacks` + timeline.
+**Rationale**: Unlocks should never teach users to play worse. These rules are concrete,
+deterministic, derivable from the timeline, and compatible with the catalog guard test.
 
 ## R7 — Embered variant (no new deps)
 
@@ -182,5 +176,5 @@ rejected: messier validation and migration semantics.
 ## Resolved unknowns
 
 All Technical Context items are known from the existing project; **no `NEEDS CLARIFICATION` remain**.
-The three spec clarifications (run-days, fire-out-voids-all, D+W inclusive) and the two tunable items
-(Ember average, Phoenix comeback) are pinned above.
+The three spec clarifications (run-days, fire-out-voids-all, D+W inclusive) and the positive-achievement
+guardrails are pinned above.

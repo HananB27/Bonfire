@@ -268,6 +268,11 @@ achievement, and confirm it switches to full color with no further action.
 - **FR-011**: The catalog MUST order difficulty to match exoticness: harder achievements map to more
   exotic/exciting flames, and time-specific flames MUST be the most exotic tier (the hardest, most
   visually striking styles).
+- **FR-011a**: Unlock conditions MUST never reward intentionally weaker play: no flame may require keeping
+  scores low, keeping an average below a threshold, lowering an existing score, or avoiding high scores.
+- **FR-011b**: Unlock conditions MUST never require the player to break, lose, extinguish, or intentionally
+  reset a streak/fire. Rebuilding after failure may happen naturally, but it MUST NOT be the required path
+  to any flame.
 - **FR-012**: Users MUST be able to select any flame in the catalog as their active style, replacing the
   former simple color selection.
 - **FR-013**: While the active flame is unlocked, the lit fire MUST render that flame's full style.
@@ -409,12 +414,12 @@ calendar days with no gaps.
 |-------|------|------------------------|-------------|--------|
 | **Toxic** | Radioactive acid neon green, aggressive flicker | `#F2FFB0 → #9AFF1E → #2EA800` | 3 consecutive perfect days (5,5,5) | 7 days |
 | **Wisp** | Eerie swamp-gas teal-green, translucent, wandering tips | `#DFFFF6 → #5FE0C0 → #1E7F86` | A 5-day unbroken chain with no day below 3 | 10 days |
-| **Ember** | Dying-coals calm low glow, slow pulse | `#FFB060 → #E8501E → #5C0E08` | A 10-day daily-logged run with average score ≤ 2 (the slow burn) | 14 days |
-| **Spectral** | Semi-transparent cyan-white soulfire, ghostly shimmer | `#F0FFFF → #7FFFE0 → #2E9FB0` (low opacity) | Comeback: after going out, relight and reach run strength ≥ 30 within 7 days | 10 days |
+| **Ember** | Dying-coals calm low glow, slow pulse | `#FFB060 → #E8501E → #5C0E08` | A 10-day unbroken chain with every day scored ≥ 3 | 14 days |
+| **Spectral** | Semi-transparent cyan-white soulfire, ghostly shimmer | `#F0FFFF → #7FFFE0 → #2E9FB0` (low opacity) | Cross run strength ≥ 30 | 10 days from crossing |
 | **Frostfire** | Cold burn; icy cyan-white reading as "cold" | `#FFFFFF → #9FE8FF → #2E7BD6` | Every day of one calendar week scored (7/7, any score) | 14 days |
 | **Inferno** | White-hot core bleeding to orange; brightest/hottest | `#FFFFFF → #FFD24A → #FF5A00` | A calendar week where all 7 days are strong (≥4) | 14 days |
 | **Solfire** | Solar-corona blinding white-gold, regal, radiating halo | `#FFFFFF → #FFE066 → #FFA21E` | Cross run strength ≥ 100 | 14 days from crossing |
 | **Voidfire** | Purple-black dark flame; core swallows light, edges glow | `#E2B3FF → #8B2FE0 → #2A0A4A` (near-black inner void) | A 14-day unbroken chain (no gaps) | 21 days |
 | **Aurora** *(new)* | Northern-lights ribbons; hue drifts green→teal→magenta→violet | `#B8FFD9 → #5FE0C0 → #FF7AD9 → #8B2FE0` (slow color drift) | A 30-day unbroken chain | 21 days |
-| **Phoenix** *(new)* | Rebirth flame; ash-grey roots igniting to gold then white | `#4A4A4A → #FF5A00 → #FFD24A → #FFFFFF` (rising shimmer) | Bring the fire back from out 3 separate times, each rebuilt to strength ≥ 30 | 21 days from the 3rd |
+| **Phoenix** *(new)* | Rebirth flame; ash-grey roots igniting to gold then white | `#4A4A4A → #FF5A00 → #FFD24A → #FFFFFF` (rising shimmer) | Cross run strength ≥ 150 | 21 days from crossing |
 | **Nebula** *(new, hardest)* | Cosmic star-nursery; violet base, teal mid, gold sparks drifting | `#2A0A4A → #2E9FB0 → #7FFFE0 → #FFE066` (drifting hue) | Two consecutive perfect weeks (14 days, all ≥4 with ≥10 perfect days) | 21 days |

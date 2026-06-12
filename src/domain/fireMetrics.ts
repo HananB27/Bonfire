@@ -3,8 +3,8 @@
  *
  * Feature 001's `computeFire` answers "is the fire lit and how strong". The
  * achievement system needs MORE detail about the current run and the whole
- * history (how many scored days, the trailing unbroken chain, comeback events,
- * a per-day timeline) so each flame's unlock condition can be evaluated.
+ * history (how many scored days, the trailing unbroken chain, a per-day
+ * timeline) so each flame's unlock condition can be evaluated.
  *
  * Rather than churn `computeFire` (and its oracle tests), this module does ONE
  * extra deterministic walk over the same sorted day keys, using the SAME rules
@@ -33,20 +33,6 @@ export interface DayPoint {
   consMiss: number; // consecutive missed-past-days count at this day
 }
 
-/**
- * A relight→rebuild event: the fire was OUT, then a later score brought it back.
- * `relightDay` = the day it re-lit; `endDay` = the last SCORED day of that run
- * (strength is flat across trailing misses, so scans never need later days);
- * `peak` = the highest strength that run reached. The day a run crosses a SPECIFIC strength threshold
- * is NOT stored — it is derived on demand from `timeline` (so one Comeback serves
- * any threshold: Spectral 30, Phoenix 30, future values).
- */
-export interface Comeback {
-  relightDay: DateKey;
-  endDay: DateKey;
-  peak: number;
-}
-
 /** Everything the achievement evaluators need, from a single walk. */
 export interface RunMetrics {
   runStart: DateKey | null; // first scored day of the current alive run (null if not lit)
@@ -55,8 +41,7 @@ export interface RunMetrics {
   unbrokenChain: number; // consecutive scored days (no gaps) ending at the latest scored day
   strongDaysInRun: number; // scored ≥ 4 in the run
   perfectDaysInRun: number; // scored === 5 in the run
-  scoreSumInRun: number; // Σ score over scored days in the run (for averages)
-  comebacks: Comeback[]; // lifetime relight→rebuild events
+  scoreSumInRun: number; // Σ score over scored days in the run
   timeline: DayPoint[]; // per-day snapshots from the first scored day through today
 }
 
@@ -70,7 +55,6 @@ function emptyMetrics(): RunMetrics {
     strongDaysInRun: 0,
     perfectDaysInRun: 0,
     scoreSumInRun: 0,
-    comebacks: [],
     timeline: [],
   };
 }
@@ -93,7 +77,6 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
   // ---- Walk state (mirrors computeFire) ----
   let cur = keys[0];
   let alive = false;
-  let everLit = false;
   let strength = 0;
   let consMiss = 0;
 
@@ -108,7 +91,6 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
   let perfectDays = 0;
   let scoreSum = 0;
 
-  const comebacks: Comeback[] = [];
   const timeline: DayPoint[] = [];
 
   while (cur <= today) {
@@ -116,8 +98,7 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
 
     if (isScore(score)) {
       if (!alive) {
-        // Relight from a fresh spark. If a previous run had already gone out
-        // (everLit) this relight is a "comeback"; the very first ignition is not.
+        // Relight from a fresh spark.
         alive = true;
         strength = 0;
         runStart = cur;
@@ -125,12 +106,8 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
         strongDays = 0;
         perfectDays = 0;
         scoreSum = 0;
-        if (everLit) {
-          comebacks.push({ relightDay: cur, endDay: cur, peak: 0 });
-        }
       }
       strength += contribution(score);
-      everLit = true;
       consMiss = 0;
 
       // Unbroken chain: extend if yesterday was scored, else start a new run of 1.
@@ -141,13 +118,6 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
       scoreSum += score;
       if (score >= 4) strongDays += 1; // "strong" day
       if (score === 5) perfectDays += 1; // "perfect" day
-
-      // Keep the current run's comeback (if any) up to date.
-      const last = comebacks[comebacks.length - 1];
-      if (last && last.relightDay === runStart) {
-        last.endDay = cur;
-        last.peak = Math.max(last.peak, strength);
-      }
 
       prevScored = true;
     } else if (isPast(cur, today)) {
@@ -174,9 +144,9 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
   }
 
   // If the fire is not lit at `today`, every run-scoped metric is zero/null;
-  // history (comebacks + timeline) is still returned for time-achievement scans.
+  // history timeline is still returned for time-achievement scans.
   if (!alive) {
-    return { ...emptyMetrics(), comebacks, timeline };
+    return { ...emptyMetrics(), timeline };
   }
 
   return {
@@ -187,7 +157,6 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
     strongDaysInRun: strongDays,
     perfectDaysInRun: perfectDays,
     scoreSumInRun: scoreSum,
-    comebacks,
     timeline,
   };
 }

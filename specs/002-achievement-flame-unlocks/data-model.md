@@ -43,8 +43,12 @@ derived **Fire State** (`state/strength/everLit/label` from `computeFire`). New 
 
 **ConditionKind** (and the metric each reads — see Achievement Engine contract):
 `runDays · runStrength · strongDaysInRun · runStrengthAndDays` (streak);
-`consecutivePerfect · unbrokenChain · unbrokenChainMinScore · lowBurnRun · perfectCalendarWeek ·
-consecutivePerfectWeeks · comebackStrength · comebackCount · crossStrength` (time).
+`consecutivePerfect · unbrokenChain · unbrokenChainMinScore · perfectCalendarWeek ·
+consecutivePerfectWeeks · crossStrength` (time).
+
+Achievement conditions must reward stronger scores and longer continuity. They must not require low
+scores, low averages, lowered scores, or intentionally breaking/extinguishing a streak/fire (FR-011a,
+FR-011b).
 
 ## Derived (never stored)
 
@@ -59,11 +63,7 @@ consecutivePerfectWeeks · comebackStrength · comebackCount · crossStrength` (
 | `strongDaysInRun`| integer ≥ 0     | Scored ≥ 4 in the run.                                         |
 | `perfectDaysInRun`| integer ≥ 0    | Scored === 5 in the run.                                       |
 | `scoreSumInRun`  | integer ≥ 0     | Σ score over scored days in the run.                          |
-| `comebacks`      | `Comeback[]`    | Lifetime relight→rebuild events (for Spectral/Phoenix).       |
 | `timeline`       | `DayPoint[]`    | Per-day `{date,score?,alive,strength,consMiss}` for completion scans. |
-
-`Comeback = { relightDay: DateKey; endDay: DateKey; peak: number }`. The day a run crosses a specific
-strength threshold is derived from `timeline` on demand (not stored) — see achievement-engine contract.
 
 ### AchievementState — from `achievements.ts`, one per non-base flame
 
@@ -113,5 +113,6 @@ any ─(backfill/edit/clear)→ recompute from calendar (order-independent)
 - Every non-base flame has an `achievement`; every flame has `palette` + `embered` → FR-001, FR-024.
 - Time achievements require `windowDays` → FR-007 (catalog test).
 - Unlock derived only, recomputed on change, order-independent → FR-004, FR-020, SC-005.
+- Unlock requirements never reward low scores or intentional streak/fire breaks → FR-011a, FR-011b.
 - Active selection persists; may load locked → embered → FR-021, FR-014, SC-006, SC-007.
 - Fire `out` ⇒ all non-Amber locked & out-state visuals win → FR-007a, FR-015.

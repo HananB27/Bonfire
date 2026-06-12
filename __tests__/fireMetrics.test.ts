@@ -3,8 +3,7 @@
  *
  * Calendars are built relative to a fixed injected `today` so the tests are
  * deterministic and never touch the real clock. We assert the documented metric
- * table (contracts/achievement-engine.md) plus comeback detection and
- * order-independence (SC-005).
+ * table (contracts/achievement-engine.md) plus order-independence (SC-005).
  */
 
 import { computeMetrics } from '../src/domain/fireMetrics';
@@ -67,9 +66,6 @@ test('two-day gap extinguishes, then a score today relights a fresh run', () => 
   expect(m.runDays).toBe(1);
   expect(m.unbrokenChain).toBe(1);
   expect(m.runStart).toBe(day(0));
-  // The relight after an out is recorded as a comeback.
-  expect(m.comebacks).toHaveLength(1);
-  expect(m.comebacks[0].relightDay).toBe(day(0));
 });
 
 test('fire out with no relight → all run metrics zero/null', () => {
@@ -84,28 +80,12 @@ test('fire out with no relight → all run metrics zero/null', () => {
   expect(m.strongDaysInRun).toBe(0);
   expect(m.perfectDaysInRun).toBe(0);
   expect(m.scoreSumInRun).toBe(0);
-  expect(m.comebacks).toHaveLength(0); // never relit
-});
-
-test('comeback records relight day, end day, and peak strength', () => {
-  const entries = build([
-    [-5, 5], // strength 4
-    [-4, 5], // strength 8
-    // -3, -2 missed → out
-    [-1, 5], // relight (comeback) strength 4
-    [0, 5], // strength 8
-  ]);
-  const m = computeMetrics(entries, TODAY);
-  expect(m.comebacks).toHaveLength(1);
-  expect(m.comebacks[0]).toEqual({ relightDay: day(-1), endDay: day(0), peak: 8 });
-  expect(m.runDays).toBe(2); // current run is the two days since relight
 });
 
 test('empty calendar → empty metrics', () => {
   const m = computeMetrics({}, TODAY);
   expect(m.runStart).toBeNull();
   expect(m.timeline).toHaveLength(0);
-  expect(m.comebacks).toHaveLength(0);
 });
 
 test('order-independent: insertion order does not change the metrics', () => {
