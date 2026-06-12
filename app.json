@@ -14,6 +14,9 @@
       "eas": {
         "projectId": "fb8c42fe-30e3-46f6-a80c-e4bf6b45d978"
       }
+    },
+    "android": {
+      "package": "com.asmin.basic.bonfire"
     }
   }
 }
