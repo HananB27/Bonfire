@@ -35,6 +35,17 @@ local.properties
 !debug.keystore
 .kotlin/
 
+# Expo
+#
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native folders (CNG / prebuild) — regenerate with `npx expo prebuild`
+/android
+/ios
+
 # node.js
 #
 node_modules/

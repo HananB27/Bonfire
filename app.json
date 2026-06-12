@@ -6,17 +6,14 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "bonfire",
-    "newArchEnabled": true,
     "backgroundColor": "#070a14",
-    "splash": {
-      "backgroundColor": "#070a14",
-      "resizeMode": "contain"
-    },
     "ios": {
       "supportsTablet": false
     },
-    "android": {
-      "edgeToEdgeEnabled": true
+    "extra": {
+      "eas": {
+        "projectId": "fb8c42fe-30e3-46f6-a80c-e4bf6b45d978"
+      }
     }
   }
 }
