@@ -54,6 +54,9 @@ function DayCell({ dateKey, dayNumber, kind, score, isToday, selected, onPress }
             kind === 'missed' && styles.missed,
             isToday && styles.today,
             scored && { backgroundColor: heat!.background, borderWidth: 0 },
+            // the white "1" day keeps a token-defined hairline so it doesn't
+            // read as an empty cell (today/selected rings below still win)
+            scored && heat!.border !== undefined && { borderWidth: 1.4, borderColor: heat!.border },
             scored && isToday && styles.scoredToday,
             selected && styles.selected,
             pressed && tappable && styles.pressed,

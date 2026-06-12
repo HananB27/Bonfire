@@ -1,6 +1,7 @@
 /**
- * palettes.test.ts — unit tests for the gradient→palette sampler and the dim
- * "embered" (locked) variant added for the achievement-flame catalog.
+ * palettes.test.ts — unit tests for the gradient→palette sampler, the dim
+ * "embered" (locked) variant, and the `withAlpha`/`darken` glow-derivation
+ * helpers (003 US2).
  *
  * These are pure color functions, so they can be checked exactly. The two things
  * that must hold: (1) sampling preserves hot→core / cool→red orientation, and
@@ -12,6 +13,8 @@
 import {
   paletteFromGradient,
   emberedPalette,
+  withAlpha,
+  darken,
   EMBERED_DIM,
   type Palette,
 } from '../src/theme/palettes';
@@ -92,5 +95,77 @@ describe('emberedPalette', () => {
   test('EMBERED_DIM is a sensible glow knob in (0,1)', () => {
     expect(EMBERED_DIM).toBeGreaterThan(0);
     expect(EMBERED_DIM).toBeLessThan(1);
+  });
+});
+
+// ---- withAlpha / darken: the glow-derivation helpers (003 US2) ----
+// These feed the halo / ground glow / hearth wash / ember fades, so they must
+// be exact, clamped, and never throw (contracts/glow-derivation.md).
+
+describe('withAlpha', () => {
+  test('converts "#rrggbb" + alpha to "rgba(r,g,b,a)"', () => {
+    expect(withAlpha('#ff7a18', 0.5)).toBe('rgba(255,122,24,0.5)');
+  });
+
+  test('alpha 0 yields a fully transparent stop (ends in ",0)")', () => {
+    expect(withAlpha('#ffae3b', 0)).toMatch(/,0\)$/);
+    expect(withAlpha('#ffae3b', 0)).toBe('rgba(255,174,59,0)');
+  });
+
+  test('malformed hex falls back to black, never throws (parseHex behavior)', () => {
+    expect(withAlpha('zzzzzz', 0.3)).toBe('rgba(0,0,0,0.3)');
+    expect(withAlpha('', 1)).toBe('rgba(0,0,0,1)');
+  });
+});
+
+describe('darken', () => {
+  test('multiplies each channel by the factor', () => {
+    // #b3380f = (179, 56, 15); ×0.5 → (90, 28, 8) rounded → #5a1c08
+    expect(darken('#b3380f', 0.5)).toBe('#5a1c08');
+  });
+
+  test('clamps to the 0..255 range (factor > 1 cannot overflow)', () => {
+    expect(darken('#ffffff', 2)).toBe('#ffffff');
+    expect(darken('#808080', 0)).toBe('#000000');
+  });
+
+  test('malformed hex falls back to black, never throws', () => {
+    expect(darken('oops', 0.5)).toBe('#000000');
+  });
+});
+
+describe('glow derivation from palettes', () => {
+  // The same stop recipe Flame.tsx uses for the halo — derived here from two
+  // contrasting palettes to prove the glow follows the flame's own colors.
+  const haloStops = (p: Palette) => [
+    withAlpha(p.amber, 0.4),
+    withAlpha(p.ember, 0.16),
+    withAlpha(p.ember, 0),
+  ];
+
+  test('two contrasting palettes produce different derived stop sets', () => {
+    const amber = paletteFromGradient(AMBER_GRADIENT);
+    const blue = paletteFromGradient(['#e8f6ff', '#7ac9ff', '#1f6dff', '#0a2a8f']);
+    expect(haloStops(amber)).not.toEqual(haloStops(blue));
+  });
+
+  test('an embered palette in produces embered-tinted stops out', () => {
+    const full = paletteFromGradient(AMBER_GRADIENT);
+    const dim = emberedPalette(full);
+    const fullStops = haloStops(full);
+    const dimStops = haloStops(dim);
+    expect(dimStops).not.toEqual(fullStops);
+    // The embered amber channel really is what lands in the stop.
+    expect(dimStops[0]).toBe(withAlpha(dim.amber, 0.4));
+  });
+
+  test('a near-black palette still yields its own subtle stops — no orange fallback', () => {
+    const dark = paletteFromGradient(['#1a1a1c', '#0d0d0f']);
+    const stops = haloStops(dark);
+    // Every stop derives from the dark palette itself…
+    expect(stops[0]).toBe(withAlpha(dark.amber, 0.4));
+    // …and none of them is the old hardcoded default-orange value.
+    expect(stops).not.toContain('rgba(255,170,60,0.4)');
+    expect(stops).not.toContain('rgba(255,120,24,0.16)');
   });
 });

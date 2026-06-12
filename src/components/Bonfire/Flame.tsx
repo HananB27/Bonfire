@@ -45,7 +45,7 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
-import type { Palette } from '../../theme/palettes';
+import { darken, withAlpha, type Palette } from '../../theme/palettes';
 import { flameVisual } from './flameModel';
 
 interface FlameProps {
@@ -210,6 +210,27 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
   // Brightness layer applied to the whole composited flame (dim-aware).
   const brightPaint = useMemo(() => brightnessMatrix(bright), [bright]);
 
+  // ---- Palette-derived glow + tongue stops (003 US2) ----
+  // Every surrounding-light color comes from the active flame's own palette
+  // (no hardcoded warm-orange literals), so a blue flame casts blue light and
+  // an embered palette dims everything automatically. Memoized on `palette`:
+  // recomputed only on flame switch, never per frame (SC-005, ≥120 FPS).
+  const stops = useMemo(
+    () => ({
+      // warm pool of light on the ground (was fixed orange rgba stops)
+      ground: [withAlpha(palette.amber, 0.55), withAlpha(palette.ember, 0.22), withAlpha(palette.ember, 0)],
+      // big soft glow behind the flame
+      halo: [withAlpha(palette.amber, 0.4), withAlpha(palette.ember, 0.16), withAlpha(palette.ember, 0)],
+      // base tongue: deep (darkened) red → red → ember → translucent amber tip
+      base: [darken(palette.red, 0.55), palette.red, palette.ember, withAlpha(palette.amber, 0.2)],
+      // mid tongue: darkened red → ember → amber → translucent gold tip
+      mid: [darken(palette.red, 0.8), palette.ember, palette.amber, withAlpha(palette.gold, 0.25)],
+      // slim flickering tongue: translucent amber → gold → core fading out
+      tongue: [withAlpha(palette.amber, 0.7), palette.gold, withAlpha(palette.core, 0)],
+    }),
+    [palette],
+  );
+
   // Halo / ground-glow sizing (mirrors the CSS `calc(... + var(--fh) * k)`).
   const haloW = 160 + fh * 2.2;
   const haloH = 200 + fh * 2.6;
@@ -237,7 +258,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
             <RadialGradient
               c={vec(0, 0)}
               r={100}
-              colors={['rgba(255,150,40,0.55)', 'rgba(255,110,20,0.22)', 'rgba(255,110,20,0)']}
+              colors={stops.ground}
               positions={[0, 0.38, 0.72]}
             />
           </Circle>
@@ -261,7 +282,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
             <RadialGradient
               c={vec(0, 0)}
               r={100}
-              colors={['rgba(255,170,60,0.40)', 'rgba(255,120,24,0.16)', 'rgba(255,120,24,0)']}
+              colors={stops.halo}
               positions={[0, 0.4, 0.7]}
             />
           </Circle>
@@ -281,7 +302,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
                 <LinearGradient
                   start={vec(cx, baseY)}
                   end={vec(cx, baseY - fh)}
-                  colors={['#7a1f06', palette.red, palette.ember, 'rgba(255,160,40,0.2)']}
+                  colors={stops.base}
                   positions={[0, 0.22, 0.7, 1]}
                 />
               </Path>
@@ -293,7 +314,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
                 <LinearGradient
                   start={vec(cx, baseY)}
                   end={vec(cx, baseY - fh * 0.86)}
-                  colors={['#b3380f', palette.ember, palette.amber, 'rgba(255,200,90,0.25)']}
+                  colors={stops.mid}
                   positions={[0, 0.35, 0.8, 1]}
                 />
               </Path>
@@ -305,7 +326,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
                 <LinearGradient
                   start={vec(cx, baseY - fh * 0.4)}
                   end={vec(cx, baseY - fh * 0.9)}
-                  colors={['rgba(255,170,60,0.7)', palette.gold, 'rgba(255,244,207,0)']}
+                  colors={stops.tongue}
                   positions={[0, 0.6, 1]}
                 />
               </Path>

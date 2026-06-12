@@ -6,7 +6,8 @@
  * the data hooks (`useEntries`, `useSettings`) to the UI:
  *  - the calendar logs/clears a day's score → re-derives the fire → re-renders
  *    the flame;
- *  - the settings color choice feeds the active palette into the flame & embers.
+ *  - the equipped flame's palette feeds the flame, embers AND hearth, so every
+ *    light source in the scene matches the active flame (003 US2).
  *
  * A shared `progress` value (0 closed → 1 open) is owned here and passed to BOTH
  * the calendar sheet (which drives it) and the flame (which lifts/dims with it),
@@ -17,7 +18,7 @@
  * two-missed-days extinguish rule without waiting for real days to pass.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,6 +31,7 @@ import { flameVisual } from '../components/Bonfire/flameModel';
 import CalendarSheet from '../components/Calendar/CalendarSheet';
 import SettingsSheet from '../components/Settings/SettingsSheet';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
+import type { FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
 import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
@@ -57,6 +59,17 @@ function BonfireScreen() {
     settings.flameStyle,
   );
   const visual = useMemo(() => flameVisual(fire), [fire]);
+
+  // Locked-equip guard (FR-001, defense in depth): the gallery row already
+  // refuses locked taps, but this wrapper makes the rule hold for ANY caller —
+  // a locked flame id is silently dropped, never persisted. Reads only the
+  // derived unlock state (002 invariant: nothing new is stored).
+  const handleEquip = useCallback(
+    (id: FlameId) => {
+      if (states[id]?.unlocked) setFlameStyle(id);
+    },
+    [states, setFlameStyle],
+  );
 
   // Calendar open progress (0..1), shared with the flame so it lifts as we open.
   const progress = useSharedValue(0);
@@ -88,7 +101,7 @@ function BonfireScreen() {
         <View style={StyleSheet.absoluteFill}>
           <Embers width={width} height={height} intensity={visual.intensity} palette={effectivePalette} />
         </View>
-        <Hearth fire={fire} glow={visual.glow} />
+        <Hearth fire={fire} glow={visual.glow} palette={effectivePalette} />
         <FireCaption fire={fire} lift={progress} />
       </View>
 
@@ -96,7 +109,7 @@ function BonfireScreen() {
       <SettingsSheet
         states={states}
         activeId={settings.flameStyle}
-        onEquip={setFlameStyle}
+        onEquip={handleEquip}
         newlyUnlocked={newlyUnlocked}
         top={insets.top}
       />

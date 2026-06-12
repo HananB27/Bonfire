@@ -2,8 +2,8 @@
  * SettingsSheet.tsx — the top-right gear that opens the flame gallery.
  *
  * Tapping the gear opens `FlameGallery`, where the user browses the whole flame
- * catalog and equips one (locked flames included — they render embered until
- * earned). The old three-color picker is gone; flame selection now lives in the
+ * catalog and equips any UNLOCKED flame (locked rows reject the tap — 003 US1).
+ * The old three-color picker is gone; flame selection now lives in the
  * gallery, driven by the derived achievement `states`.
  */
 
@@ -48,12 +48,13 @@ function SettingsSheet({ states, activeId, onEquip, newlyUnlocked, top }: Settin
 }
 
 const styles = StyleSheet.create({
+  // 52×52 (003 US5): comfortably above the 44pt minimum touch target.
   gear: {
     position: 'absolute',
     right: 14,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1,
     borderColor: line,
     backgroundColor: 'rgba(10,14,26,0.7)',
@@ -62,7 +63,7 @@ const styles = StyleSheet.create({
     zIndex: 58,
   },
   gearPressed: { transform: [{ scale: 0.92 }] },
-  gearIcon: { fontSize: 18, color: ink },
+  gearIcon: { fontSize: 26, color: ink },
 });
 
 export default React.memo(SettingsSheet);

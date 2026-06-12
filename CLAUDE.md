@@ -1,19 +1,21 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/002-achievement-flame-unlocks/plan.md`
+`specs/003-ui-flame-polish/plan.md`
 
-Active feature: Achievement-Locked Flame Styles — layers an achievement-gated flame catalog onto the
-Bonfire app. Most flames are locked until the calendar meets an achievement (streak-specific: alive
-while the run satisfies it, voided when the fire goes out; time-specific: a window of W days from the
-calendar day the condition completed, gated on the fire being lit). Unlock state is **derived**, never
-stored; the active flame renders full when unlocked, dim "embered" when locked. The entire catalog
-(visuals, conditions, windows) lives in one editable file `src/domain/flames.ts`. **No new packages.**
-Pure rules in `src/domain/` (fireMetrics, flames, achievements) + a memoized `useFlames` hook feed the
-existing Skia flame a per-flame palette (switching flames stays cheap, ≥120 FPS). Calendar now opens
-via a full-screen status-bar-shade swipe-up.
-Reuses feature 001 unchanged: `src/domain/fire.ts` (`computeFire`) + its tests.
-Supporting artifacts in `specs/002-achievement-flame-unlocks/`: spec.md, research.md, data-model.md,
-contracts/ (flame-catalog, achievement-engine, settings-store, flame-gallery), quickstart.md.
-Prior feature still referenced: `specs/001-bonfire-productivity-tracker/` (fire engine + Skia flame).
+Active feature: UI & Flame Polish Fixes — five amendments to the existing app, all in current
+files, **no new packages**, no storage changes: (1) locked flames can no longer be equipped
+(gallery-row rejection cue + screen-level guard on the derived unlock state); (2) the fire's
+surrounding light — halo, ground glow, hearth warm wash, ember particles — derives from the
+active flame's own `Palette` via new pure helpers `withAlpha`/`darken` in `src/theme/palettes.ts`
+(memoized; ≥120 FPS preserved); (3) calendar score heat ramp redefined in `src/theme/tokens.ts`
+to white→light yellow→yellow→orange→red (1→5), `heatStyle()` gains an optional `border` for the
+white "1" button — buttons and day cells share the one token source; (4) the open calendar sheet
+gains a down-only pan over its whole body so a downward drag anywhere dismisses it (up-only
+full-screen open pan from 002 stays); (5) the settings gear grows to 52×52 pt (icon 26).
+Supporting artifacts in `specs/003-ui-flame-polish/`: spec.md, research.md, data-model.md,
+contracts/ (score-heat-ramp, glow-derivation, locked-selection, gesture-surface), quickstart.md.
+Prior features still referenced: `specs/002-achievement-flame-unlocks/` (flame catalog +
+achievement engine + useFlames), `specs/001-bonfire-productivity-tracker/` (fire engine +
+Skia flame).
 <!-- SPECKIT END -->

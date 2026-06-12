@@ -9,13 +9,17 @@
  * Interaction (gesture-handler Pan + Reanimated):
  *  - swipe up ANYWHERE on the closed screen (a full-screen "status-bar-shade"
  *    pull, FR-025) or drag/tap the bottom handle → open;
- *  - drag the header down / tap the scrim area → close.
+ *  - swipe DOWN anywhere on the open sheet's body (month grid, picker bar,
+ *    header — 003 US4, FR-010) / drag the header / tap the scrim area → close.
  *  - `progress` (0 closed → 1 open) is a SHARED value owned by the parent so the
  *    flame can lift/dim in lock-step (see BonfireScreen → Flame `lift`).
  *
  * The full-screen pull activates ONLY on upward movement (activeOffsetY), so
  * plain taps still reach the settings gear / dev pill (they sit above it via
- * zIndex) and never accidentally open the calendar.
+ * zIndex) and never accidentally open the calendar. The sheet-body pan is its
+ * mirror image: it activates only after ~12px of DOWNWARD travel, so day-cell
+ * taps, score buttons and month-nav arrows keep resolving as plain taps and
+ * never get stolen by the pan (FR-011).
  */
 
 /* eslint-disable react-hooks/immutability --
@@ -50,9 +54,19 @@ interface CalendarSheetProps {
   height: number; // full screen height
 }
 
-const TIMING = { duration: 420, easing: Easing.bezier(0.22, 0.9, 0.3, 1) } as const;
+const TIMING = {
+  duration: 420,
+  easing: Easing.bezier(0.22, 0.9, 0.3, 1),
+} as const;
 
-function CalendarSheet({ today, entries, onSet, onClear, progress, height }: CalendarSheetProps) {
+function CalendarSheet({
+  today,
+  entries,
+  onSet,
+  onClear,
+  progress,
+  height,
+}: CalendarSheetProps) {
   const sheetH = Math.round(height * 0.72);
   const [selected, setSelected] = useState<DateKey | null>(null);
 
@@ -95,6 +109,12 @@ function CalendarSheet({ today, entries, onSet, onClear, progress, height }: Cal
   // through untouched. The overlay sits on top of the scrim, so it also owns
   // "tap above the open sheet to close" (the tap is a no-op while closed).
   const fullScreenPan = makePan().activeOffsetY([-12, 9999]);
+
+  // Down-only pan over the OPEN sheet's body (003 US4, FR-010): the mirror
+  // image of the full-screen up-pan. Activates only after ~12px of downward
+  // travel, and `makePan`'s onEnd already snaps + clears the selected day on
+  // close — so a downward drag anywhere on the calendar dismisses it.
+  const sheetPan = makePan().activeOffsetY([-9999, 12]);
   const overlayTap = Gesture.Tap().onEnd(() => {
     if (progress.value > 0.5) {
       progress.value = withTiming(0, TIMING);
@@ -131,40 +151,49 @@ function CalendarSheet({ today, entries, onSet, onClear, progress, height }: Cal
 
       {/* closed-state affordance: swipe up / tap to open */}
       <GestureDetector gesture={Gesture.Exclusive(handlePan, handleTap)}>
-        <Animated.View style={[styles.affHandle, handleStyle]} pointerEvents="auto">
+        <Animated.View
+          style={[styles.affHandle, handleStyle]}
+          pointerEvents="auto"
+        >
           <View style={styles.handlePill} />
           <Text style={styles.handleLabel}>swipe up to log · or tap</Text>
         </Animated.View>
       </GestureDetector>
 
-      {/* the sheet itself */}
-      <Animated.View style={[styles.sheet, { height: sheetH }, sheetStyle]}>
-        <GestureDetector gesture={headerPan}>
-          <View style={styles.grabHeader} accessibilityLabel="Drag to close calendar">
-            <View style={styles.grab} />
-          </View>
-        </GestureDetector>
+      {/* the sheet itself — its whole body doubles as a swipe-down-to-close
+          surface (the header keeps its own immediate drag gesture inside) */}
+      <GestureDetector gesture={sheetPan}>
+        <Animated.View style={[styles.sheet, { height: sheetH }, sheetStyle]}>
+          <GestureDetector gesture={headerPan}>
+            <View
+              style={styles.grabHeader}
+              accessibilityLabel="Drag to close calendar"
+            >
+              <View style={styles.grab} />
+            </View>
+          </GestureDetector>
 
-        <MonthGrid
-          today={today}
-          entries={entries}
-          selectedDate={selected}
-          onSelectDay={setSelected}
-        />
+          <MonthGrid
+            today={today}
+            entries={entries}
+            selectedDate={selected}
+            onSelectDay={setSelected}
+          />
 
-        <ScorePickerBar
-          dateKey={selected}
-          currentScore={selected ? entries[selected] : undefined}
-          onChoose={score => {
-            if (selected) onSet(selected, score);
-            setSelected(null);
-          }}
-          onClear={() => {
-            if (selected) onClear(selected);
-            setSelected(null);
-          }}
-        />
-      </Animated.View>
+          <ScorePickerBar
+            dateKey={selected}
+            currentScore={selected ? entries[selected] : undefined}
+            onChoose={score => {
+              if (selected) onSet(selected, score);
+              setSelected(null);
+            }}
+            onClear={() => {
+              if (selected) onClear(selected);
+              setSelected(null);
+            }}
+          />
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
@@ -214,7 +243,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   grabHeader: { paddingTop: 12, paddingBottom: 6, alignItems: 'center' },
-  grab: { width: 42, height: 5, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.18)' },
+  grab: {
+    width: 42,
+    height: 5,
+    borderRadius: 5,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
 });
 
 export default React.memo(CalendarSheet);

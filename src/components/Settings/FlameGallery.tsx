@@ -6,8 +6,9 @@
  * rarity order: Base → Streak → Time. Every flame is visible with its colors,
  * name, requirement, and live progress (full teasers — FR-016/017/018, SC-008).
  *
- * Tapping any row equips that flame and closes — including LOCKED flames, which
- * the user may preview embered until earned (FR-012, US6).
+ * Tapping an UNLOCKED row equips that flame and closes the gallery. LOCKED rows
+ * never equip (003 US1, FR-001): `FlameRow` rejects the tap with a brief cue and
+ * the screen's `onEquip` guard would drop a locked id anyway.
  */
 
 import React from 'react';

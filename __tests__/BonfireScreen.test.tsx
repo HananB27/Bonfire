@@ -133,12 +133,15 @@ test('can page back a month; next is capped at the current month (US3, FR-020)',
 });
 
 // The live flame's palette prop (what the screen is actually rendering). The
-// Flame element is the only node with BOTH a `fire` and a `palette` prop.
-function flamePalette(tree: ReactTestRenderer.ReactTestRenderer) {
-  const node = tree.root.find(
-    n => n.props && typeof n.props.fire === 'object' && n.props.palette,
+// Hearth also takes `fire` + `palette` now (003 US2), so we pin the Flame by
+// its `dim` prop, which only the Flame has.
+function findFlame(tree: ReactTestRenderer.ReactTestRenderer) {
+  return tree.root.find(
+    n => n.props && typeof n.props.fire === 'object' && n.props.palette && 'dim' in n.props,
   );
-  return node.props.palette as { core: string };
+}
+function flamePalette(tree: ReactTestRenderer.ReactTestRenderer) {
+  return findFlame(tree).props.palette as { core: string };
 }
 
 // Find a gallery radio row whose accessibility label starts with `name`.
@@ -150,6 +153,26 @@ function flameRow(tree: ReactTestRenderer.ReactTestRenderer, name: string) {
       n.props.accessibilityLabel.startsWith(name),
   );
 }
+
+test('the settings gear is a 52pt touch target and still opens the gallery (003 US5, FR-012)', async () => {
+  const tree = await renderScreen();
+
+  const gear = tree.root.find(
+    n =>
+      typeof n.props.onPress === 'function' &&
+      n.props.accessibilityLabel === 'Settings: choose flame',
+  );
+  // Pressable style is a function of the pressed state — resolve and flatten it.
+  const resolved = gear.props.style({ pressed: false });
+  const flat = Object.assign({}, ...[resolved].flat(Infinity).filter(Boolean));
+  // 52×52: visibly larger than the old 38 and above the 44pt minimum target.
+  expect(flat.width).toBe(52);
+  expect(flat.height).toBe(52);
+  expect(flat.width).toBeGreaterThanOrEqual(44);
+
+  await press(tree, 'choose flame');
+  expect(flameRow(tree, 'Amber')).toBeTruthy(); // the gallery actually opened
+});
 
 test('the gallery opens from the gear; by default only Amber is unlocked (US1.3)', async () => {
   const tree = await renderScreen();
@@ -206,8 +229,7 @@ test('an equipped streak flame relocks when the fire goes out, then re-earns (US
   for (let i = 0; i < 3; i++) await press(tree, 'Advance one day');
   expect(allText(tree)).toContain('two days missed'); // fire is out
   // The flame element is hidden while out (its fire prop says so).
-  const flameNode = tree.root.find(n => n.props && typeof n.props.fire === 'object' && n.props.palette);
-  expect(flameNode.props.fire.state).toBe('out');
+  expect(findFlame(tree).props.fire.state).toBe('out');
 
   // Relight with a weak score → lit but below Crimson's threshold → embered.
   await press(tree, 'not yet logged');
@@ -222,35 +244,51 @@ test('an equipped streak flame relocks when the fire goes out, then re-earns (US
   expect(flamePalette(tree).core).toBe(flameById('crimson').palette.core);
 });
 
-test('equipping a locked flame previews embered, then bursts to full when earned (US6)', async () => {
+// ---- Screen-level locked-equip guard (003 US1, FR-001 defense in depth) ----
+// The FlameRow already refuses locked presses, so we exercise the screen's own
+// guard directly through the `onEquip` prop it hands to SettingsSheet — the
+// path ANY future caller would take.
+
+// The guarded equip handler the screen passes down (SettingsSheet is the only
+// node with both `states` and `onEquip` props).
+function equipHandler(tree: ReactTestRenderer.ReactTestRenderer) {
+  const node = tree.root.find(
+    n => n.props && n.props.states && typeof n.props.onEquip === 'function' && 'newlyUnlocked' in n.props,
+  );
+  return node.props.onEquip as (id: string) => void;
+}
+
+test('equipping a LOCKED flame id is a no-op: nothing renders, nothing persists (FR-001)', async () => {
   const tree = await renderScreen();
 
-  // Light the fire weakly (strength 2 — below Crimson's 5).
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 3');
-
-  // Equip the LOCKED Crimson → embered palette + dim < 1 on the live flame.
-  await press(tree, 'choose flame');
+  // Fresh calendar → Voidfire is locked. Try to equip it via the screen handler.
   await act(async () => {
-    flameRow(tree, 'Crimson').props.onPress();
+    equipHandler(tree)('voidfire');
   });
-  const flameNode = () =>
-    tree.root.find(n => n.props && typeof n.props.fire === 'object' && n.props.palette);
-  expect(flameNode().props.palette.core).toBe(flameById('crimson').embered.core);
-  expect(flameNode().props.dim).toBeLessThan(1);
 
-  // Meet the achievement (strength 2+4=6 ≥ 5) → full color, no further action.
+  // The live flame still renders Amber — the locked equip never went through…
+  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+  // …and nothing was written to settings (flameStyle never persisted).
+  const raw = await AsyncStorage.getItem('bonfire.settings.v2');
+  expect(raw === null || (JSON.parse(raw).flameStyle ?? 'amber') === 'amber').toBe(true);
+});
+
+test('equipping an UNLOCKED flame id still persists as before (FR-003)', async () => {
+  const tree = await renderScreen();
+
+  // Earn Crimson (run strength 8 via two 5s on consecutive days).
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 5');
   await press(tree, 'Advance one day');
   await press(tree, 'not yet logged');
   await press(tree, 'Score 5');
-  expect(flameNode().props.palette.core).toBe(flameById('crimson').palette.core);
-  expect(flameNode().props.dim).toBe(1);
 
-  // Amber is always full, even right after equipping.
-  await press(tree, 'choose flame');
   await act(async () => {
-    flameRow(tree, 'Amber').props.onPress();
+    equipHandler(tree)('crimson');
   });
-  expect(flameNode().props.palette.core).toBe(flameById('amber').palette.core);
-  expect(flameNode().props.dim).toBe(1);
+
+  expect(flamePalette(tree).core).toBe(flameById('crimson').palette.core);
+  const raw = await AsyncStorage.getItem('bonfire.settings.v2');
+  expect(raw).not.toBeNull();
+  expect(JSON.parse(raw!).flameStyle).toBe('crimson');
 });

@@ -5,14 +5,18 @@
  * shapes, so they're plain React Native views (cheaper than Skia here). The coal
  * pulse, warm-wash glow and smoke drift animate on the UI thread via Reanimated.
  *
+ * Warm wash and coal colors derive from the active flame's `palette` prop
+ * (003 US2) — the screen passes the same effective (possibly embered) palette
+ * the flame renders with, so the hearth's light always matches the fire.
+ *
  * States:
  *  - lit:   warm wash visible (opacity ∝ glow), coals pulsing.
  *  - out:   logs greyed/dimmed, coals hidden, smoke wisps rising.
  *  - unlit: logs normal, coals pulse slowly, no warm wash.
  */
 
-import React, { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useReducedMotion,
@@ -23,16 +27,18 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
-import { ember, core } from '../../theme/tokens';
+import { withAlpha, type Palette } from '../../theme/palettes';
 
 interface HearthProps {
   fire: FireState;
   glow: number; // 0..1 warm-wash intensity from flameModel
+  palette: Palette; // active flame's effective palette → wash + coal colors
   bottom?: number; // distance from scene bottom (defaults to the CSS 144px)
 }
 
 // One pulsing coal. Each gets a different delay so they shimmer out of sync.
-function Coal({ left, bottom, delay, hidden }: { left: number; bottom: number; delay: number; hidden: boolean }) {
+// `colorStyle` carries the palette-derived fill + glow from the parent.
+function Coal({ left, bottom, delay, hidden, colorStyle }: { left: number; bottom: number; delay: number; hidden: boolean; colorStyle: ViewStyle }) {
   const pulse = useSharedValue(0.6);
   const reduced = useReducedMotion();
   useEffect(() => {
@@ -49,7 +55,7 @@ function Coal({ left, bottom, delay, hidden }: { left: number; bottom: number; d
     opacity: hidden ? 0 : pulse.value,
     transform: [{ scale: 0.9 + pulse.value * 0.18 }],
   }));
-  return <Animated.View style={[styles.coal, { left, bottom }, style]} />;
+  return <Animated.View style={[styles.coal, colorStyle, { left, bottom }, style]} />;
 }
 
 // One rising smoke wisp (out state only).
@@ -74,13 +80,25 @@ function Smoke({ left, dur, delay, drift, visible }: { left: number; dur: number
   return <Animated.View style={[styles.smoke, { left }, style]} />;
 }
 
-function Hearth({ fire, glow, bottom = 144 }: HearthProps) {
+function Hearth({ fire, glow, palette, bottom = 144 }: HearthProps) {
   const isOut = fire.state === 'out';
+
+  // Palette-derived colors (003 US2): the warm wash is the flame's ember tone
+  // at half alpha; coals glow with the flame's core/ember. Memoized on the
+  // palette so they recompute only on flame switch, never per frame.
+  const warmStyle = useMemo<ViewStyle>(
+    () => ({ backgroundColor: withAlpha(palette.ember, 0.5) }),
+    [palette],
+  );
+  const coalStyle = useMemo<ViewStyle>(
+    () => ({ backgroundColor: palette.core, shadowColor: palette.ember }),
+    [palette],
+  );
 
   return (
     <View style={[styles.hearth, { bottom }]} pointerEvents="none">
       {/* warm wash on the logs (screen-like glow), fades with the fire */}
-      <View style={[styles.logWarm, { opacity: isOut ? 0 : glow }]} />
+      <View style={[styles.logWarm, warmStyle, { opacity: isOut ? 0 : glow }]} />
 
       {/* two crossed logs */}
       <View style={[styles.log, styles.logL1, isOut && styles.logCold]} />
@@ -88,11 +106,11 @@ function Hearth({ fire, glow, bottom = 144 }: HearthProps) {
 
       {/* glowing coals between the logs */}
       <View style={styles.coals}>
-        <Coal left={12} bottom={4} delay={0} hidden={isOut} />
-        <Coal left={38} bottom={8} delay={600} hidden={isOut} />
-        <Coal left={62} bottom={3} delay={1100} hidden={isOut} />
-        <Coal left={50} bottom={10} delay={1600} hidden={isOut} />
-        <Coal left={24} bottom={11} delay={2000} hidden={isOut} />
+        <Coal left={12} bottom={4} delay={0} hidden={isOut} colorStyle={coalStyle} />
+        <Coal left={38} bottom={8} delay={600} hidden={isOut} colorStyle={coalStyle} />
+        <Coal left={62} bottom={3} delay={1100} hidden={isOut} colorStyle={coalStyle} />
+        <Coal left={50} bottom={10} delay={1600} hidden={isOut} colorStyle={coalStyle} />
+        <Coal left={24} bottom={11} delay={2000} hidden={isOut} colorStyle={coalStyle} />
       </View>
 
       {/* smoke wisps only when the fire is out */}
@@ -129,6 +147,7 @@ const styles = StyleSheet.create({
   logL1: { transform: [{ rotate: '-12deg' }] },
   logL2: { bottom: 4, transform: [{ rotate: '11deg' }] },
   logCold: { opacity: 0.62 },
+  // backgroundColor comes from the palette (warmStyle) — see Hearth body.
   logWarm: {
     position: 'absolute',
     left: '50%',
@@ -137,7 +156,6 @@ const styles = StyleSheet.create({
     width: 170,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,150,50,0.5)',
   },
   coals: {
     position: 'absolute',
@@ -147,13 +165,12 @@ const styles = StyleSheet.create({
     width: 90,
     height: 22,
   },
+  // backgroundColor/shadowColor come from the palette (coalStyle) — see Hearth body.
   coal: {
     position: 'absolute',
     width: 9,
     height: 9,
     borderRadius: 5,
-    backgroundColor: core,
-    shadowColor: ember,
     shadowOpacity: 0.9,
     shadowRadius: 4,
   },

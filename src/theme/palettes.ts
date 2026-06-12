@@ -97,6 +97,28 @@ export function paletteFromGradient(stops: string[]): Palette {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Glow-derivation helpers (003 US2).
+//
+// The fire's surrounding light — halo, ground glow, hearth warm wash, ember
+// particle fades — derives every color from the active flame's palette using
+// these two pure helpers, so a blue flame casts blue light, never the old
+// hardcoded orange. Both reuse `parseHex`, so malformed input falls back to
+// black instead of throwing.
+// ---------------------------------------------------------------------------
+
+/** "#rrggbb" + alpha → "rgba(r,g,b,a)". Malformed hex falls back to black. */
+export function withAlpha(hex: string, alpha: number): string {
+  const { r, g, b } = parseHex(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Darken "#rrggbb" by multiplying each channel by `factor`, clamped to 0–255. */
+export function darken(hex: string, factor: number): string {
+  const { r, g, b } = parseHex(hex);
+  return toHex({ r: r * factor, g: g * factor, b: b * factor });
+}
+
 // How much to dim an embered (locked) flame's glow/brightness (knob for `Flame`).
 export const EMBERED_DIM = 0.45;
 

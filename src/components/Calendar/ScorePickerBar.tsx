@@ -77,6 +77,8 @@ function ScorePickerBar({ dateKey, currentScore, onChoose, onClear }: ScorePicke
               style={({ pressed }) => [
                 styles.btn,
                 { backgroundColor: heat.background },
+                // the white "1" needs its token-defined outline to stay visible
+                heat.border !== undefined && { borderColor: heat.border },
                 active && styles.btnActive,
                 pressed && styles.btnPressed,
               ]}>
@@ -124,9 +126,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Selected ring: dark warm instead of the old cream (#fff4cf), which became
+  // invisible against the new light 1–3 fills (FR-008, acceptance 3).
   btnActive: {
-    borderWidth: 2,
-    borderColor: '#fff4cf',
+    borderWidth: 3,
+    borderColor: '#3b2a14',
   },
   btnPressed: { transform: [{ scale: 0.9 }] },
   btnText: { fontSize: 18, fontWeight: '700' },

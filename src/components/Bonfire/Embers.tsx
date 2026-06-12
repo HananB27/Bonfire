@@ -14,7 +14,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { Canvas, Circle, RadialGradient, vec } from '@shopify/react-native-skia';
 import { useDerivedValue, useReducedMotion, useSharedValue } from 'react-native-reanimated';
-import type { Palette } from '../../theme/palettes';
+import { withAlpha, type Palette } from '../../theme/palettes';
 
 interface EmbersProps {
   width: number;
@@ -87,12 +87,14 @@ function Particle({
     return env * bright;
   });
 
+  // Each particle fades out to a transparent version of ITS OWN color (003 US2)
+  // — not a fixed orange — so off-palette flames get matching sparks.
   return (
     <Circle c={c} r={seed.size} opacity={opacity}>
       <RadialGradient
         c={c}
         r={seed.size}
-        colors={[color, color, 'rgba(255,120,20,0)']}
+        colors={[color, color, withAlpha(color, 0)]}
         positions={[0, 0.45, 1]}
       />
     </Circle>
