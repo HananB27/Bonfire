@@ -1,21 +1,22 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/003-ui-flame-polish/plan.md`
+`specs/004-flame-visual-profiles/plan.md`
 
-Active feature: UI & Flame Polish Fixes — five amendments to the existing app, all in current
-files, **no new packages**, no storage changes: (1) locked flames can no longer be equipped
-(gallery-row rejection cue + screen-level guard on the derived unlock state); (2) the fire's
-surrounding light — halo, ground glow, hearth warm wash, ember particles — derives from the
-active flame's own `Palette` via new pure helpers `withAlpha`/`darken` in `src/theme/palettes.ts`
-(memoized; ≥120 FPS preserved); (3) calendar score heat ramp redefined in `src/theme/tokens.ts`
-to white→light yellow→yellow→orange→red (1→5), `heatStyle()` gains an optional `border` for the
-white "1" button — buttons and day cells share the one token source; (4) the open calendar sheet
-gains a down-only pan over its whole body so a downward drag anywhere dismisses it (up-only
-full-screen open pan from 002 stays); (5) the settings gear grows to 52×52 pt (icon 26).
-Supporting artifacts in `specs/003-ui-flame-polish/`: spec.md, research.md, data-model.md,
-contracts/ (score-heat-ramp, glow-derivation, locked-selection, gesture-surface), quickstart.md.
-Prior features still referenced: `specs/002-achievement-flame-unlocks/` (flame catalog +
-achievement engine + useFlames), `specs/001-bonfire-productivity-tracker/` (fire engine +
-Skia flame).
+Active feature: Flame Visual Profiles — add data-driven `visualProfile` data to the existing
+20 flame styles so rarity changes shape, motion, particles, aura, and profile-specific strength
+response, not only color. Preserve current unlock logic, selected-flame storage, gallery behavior,
+fire strength math, palette/embered locked-state behavior, and performance targets (>=120 FPS flame,
+>=60 FPS UI). `useFlames` already returns `activeStyle`; pass it from `BonfireScreen` into `Flame`
+and `Embers` while continuing to pass effective `palette` and `dim`.
+
+Renderer rule: `Flame.tsx` and `Embers.tsx` stay generic. Profile flags select shared Skia effects
+and particle variants (`sparks`, `motes`, `ash`, `bubbles`, `shards`, `wisps`, `stars`); no per-flame
+hardcoded render branches in v1.
+
+Supporting artifacts in `specs/004-flame-visual-profiles/`: spec.md, research.md, data-model.md,
+contracts/ (visual-profile-data, renderer-profile-contract, particle-variants), quickstart.md.
+Prior features still referenced: `specs/003-ui-flame-polish/` (locked guard, palette-derived glow,
+heat ramp, gestures, cog), `specs/002-achievement-flame-unlocks/` (flame catalog + achievement engine),
+`specs/001-bonfire-productivity-tracker/` (fire engine + Skia flame).
 <!-- SPECKIT END -->
