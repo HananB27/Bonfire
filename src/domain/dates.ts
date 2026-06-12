@@ -64,6 +64,20 @@ export function diffDays(a: DateKey, b: DateKey): number {
 }
 
 /**
+ * Return the Monday that starts the local calendar week containing `key`.
+ *
+ * Week-based achievements (e.g. "every day of one calendar week scored") need a
+ * stable, agreed-upon week boundary. We use Monday–Sunday: JS `getDay()` returns
+ * 0 for Sunday and 1–6 for Mon–Sat, so we shift Sunday to "7" and subtract
+ * `weekday - 1` days to land on that week's Monday.
+ */
+export function startOfWeek(key: DateKey): DateKey {
+  const weekday = parseYmd(key).getDay(); // 0=Sun, 1=Mon, ... 6=Sat
+  const isoWeekday = weekday === 0 ? 7 : weekday; // treat Sunday as the 7th day
+  return addDays(key, -(isoWeekday - 1)); // back up to Monday
+}
+
+/**
  * One cell in a month grid: a real day key, or `null` for the blank padding
  * cells before the 1st / after the last day.
  */

@@ -1,33 +1,47 @@
 /**
- * settingsStore.test.ts — persistence round-trip + defaults for the flame color,
- * using the AsyncStorage mock (set up globally in jest.setup.js).
+ * settingsStore.test.ts — v2 persistence: default, v1→v2 migration, validation,
+ * and round-trip, using the in-memory AsyncStorage mock (jest.setup.js).
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadSettings, saveSettings, DEFAULT_SETTINGS } from '../src/data/settingsStore';
 
-const STORAGE_KEY = 'bonfire.settings.v1';
+const V2_KEY = 'bonfire.settings.v2';
+const V1_KEY = 'bonfire.settings.v1';
 
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
 
-test('defaults to Amber when nothing is stored', async () => {
+test('defaults to amber when nothing is stored', async () => {
   expect(await loadSettings()).toEqual(DEFAULT_SETTINGS);
-  expect((await loadSettings()).flameColor).toBe('Amber');
+  expect((await loadSettings()).flameStyle).toBe('amber');
 });
 
-test('saves then loads the same settings', async () => {
-  await saveSettings({ flameColor: 'Sapphire' });
-  expect(await loadSettings()).toEqual({ flameColor: 'Sapphire' });
+test('returns a stored v2 flame id as-is', async () => {
+  await AsyncStorage.setItem(V2_KEY, JSON.stringify({ flameStyle: 'voidfire' }));
+  expect(await loadSettings()).toEqual({ flameStyle: 'voidfire' });
 });
 
-test('falls back to Amber for an unknown color', async () => {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ flameColor: 'Chartreuse' }));
-  expect((await loadSettings()).flameColor).toBe('Amber');
+test('migrates a v1 flameColor forward to a v2 flameStyle id', async () => {
+  await AsyncStorage.setItem(V1_KEY, JSON.stringify({ flameColor: 'Crimson' }));
+  expect(await loadSettings()).toEqual({ flameStyle: 'crimson' });
+  // The migrated value is persisted under the v2 key for next time.
+  const written = JSON.parse((await AsyncStorage.getItem(V2_KEY)) as string);
+  expect(written).toEqual({ flameStyle: 'crimson' });
+});
+
+test('an unknown / corrupt v2 id falls back to amber', async () => {
+  await AsyncStorage.setItem(V2_KEY, JSON.stringify({ flameStyle: 'chartreuse' }));
+  expect((await loadSettings()).flameStyle).toBe('amber');
 });
 
 test('returns defaults on malformed JSON', async () => {
-  await AsyncStorage.setItem(STORAGE_KEY, 'not-valid-json');
+  await AsyncStorage.setItem(V2_KEY, 'not-valid-json');
   expect(await loadSettings()).toEqual(DEFAULT_SETTINGS);
+});
+
+test('round-trips a saved flame style', async () => {
+  await saveSettings({ flameStyle: 'aurora' });
+  expect(await loadSettings()).toEqual({ flameStyle: 'aurora' });
 });

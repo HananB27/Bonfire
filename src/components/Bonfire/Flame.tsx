@@ -56,6 +56,9 @@ interface FlameProps {
   // 0 = closed, 1 = calendar fully open. Lifts + shrinks the flame as the sheet
   // rises (mirrors `app.jsx` calProg → translateY/scale on `.scene`).
   lift?: SharedValue<number>;
+  // Energy knob for a LOCKED ("embered") flame: scales glow + brightness down so
+  // the same flame reads as spent. Default 1 = full energy (no visual change).
+  dim?: number;
 }
 
 // Distance (px) from the bottom of the canvas to the flame's base, mirroring the
@@ -108,8 +111,12 @@ function flickerTransform(
   ];
 }
 
-function Flame({ fire, palette, width, height, lift }: FlameProps) {
+function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
+  // Embered flames burn lower: scale the halo/ground glow and overall brightness
+  // by `dim` (1 = unchanged). Color still comes entirely from the `palette` prop.
+  const glow = visual.glow * dim;
+  const bright = visual.bright * dim;
   const lit = fire.state === 'lit';
   // Honor the OS "reduce motion" setting: freeze the flicker loop when set.
   const reducedMotion = useReducedMotion();
@@ -200,8 +207,8 @@ function Flame({ fire, palette, width, height, lift }: FlameProps) {
 
   const flameOpacity = useDerivedValue(() => opacity.value, [opacity]);
 
-  // Brightness layer applied to the whole composited flame.
-  const brightPaint = useMemo(() => brightnessMatrix(visual.bright), [visual.bright]);
+  // Brightness layer applied to the whole composited flame (dim-aware).
+  const brightPaint = useMemo(() => brightnessMatrix(bright), [bright]);
 
   // Halo / ground-glow sizing (mirrors the CSS `calc(... + var(--fh) * k)`).
   const haloW = 160 + fh * 2.2;
@@ -214,7 +221,7 @@ function Flame({ fire, palette, width, height, lift }: FlameProps) {
       <Group opacity={flameOpacity} transform={flameTransform}>
         {/* ---- ground glow (warm pool of light on the ground) ---- */}
         <Group
-          opacity={visual.glow}
+          opacity={glow}
           transform={[
             { translateX: cx },
             { translateY: baseY - 0 },
@@ -238,7 +245,7 @@ function Flame({ fire, palette, width, height, lift }: FlameProps) {
 
         {/* ---- halo (big soft glow behind the flame) ---- */}
         <Group
-          opacity={visual.glow}
+          opacity={glow}
           transform={[
             { translateX: cx },
             { translateY: baseY - haloH * 0.3 },

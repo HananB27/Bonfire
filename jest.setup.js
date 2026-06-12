@@ -134,10 +134,12 @@ jest.mock('react-native-gesture-handler', () => {
   const RN = require('react-native');
   const chain = () => {
     const g = {};
-    ['onBegin', 'onStart', 'onUpdate', 'onChange', 'onEnd', 'onFinalize', 'enabled', 'minDistance']
-      .forEach(m => {
-        g[m] = () => g;
-      });
+    [
+      'onBegin', 'onStart', 'onUpdate', 'onChange', 'onEnd', 'onFinalize', 'enabled',
+      'minDistance', 'activeOffsetY', 'activeOffsetX', 'failOffsetY', 'failOffsetX',
+    ].forEach(m => {
+      g[m] = () => g;
+    });
     return g;
   };
   const passthrough = name => {

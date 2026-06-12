@@ -7,10 +7,21 @@
  *         and the month grid + inline score picker are shown.
  *
  * Interaction (gesture-handler Pan + Reanimated):
- *  - drag the handle up / tap it → open; drag the header down / tap scrim → close.
+ *  - swipe up ANYWHERE on the closed screen (a full-screen "status-bar-shade"
+ *    pull, FR-025) or drag/tap the bottom handle → open;
+ *  - drag the header down / tap the scrim area → close.
  *  - `progress` (0 closed → 1 open) is a SHARED value owned by the parent so the
  *    flame can lift/dim in lock-step (see BonfireScreen → Flame `lift`).
+ *
+ * The full-screen pull activates ONLY on upward movement (activeOffsetY), so
+ * plain taps still reach the settings gear / dev pill (they sit above it via
+ * zIndex) and never accidentally open the calendar.
  */
+
+/* eslint-disable react-hooks/immutability --
+ * `progress` is a Reanimated SharedValue passed down as a prop; assigning to
+ * `.value` inside gesture callbacks/worklets is the documented Reanimated API,
+ * not an illegal prop mutation. The rule cannot know this. */
 
 import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -76,10 +87,21 @@ function CalendarSheet({ today, entries, onSet, onClear, progress, height }: Cal
   const handleTap = Gesture.Tap().onEnd(() => {
     progress.value = withTiming(1, TIMING);
   });
-  const scrimTap = Gesture.Tap().onEnd(() => {
-    progress.value = withTiming(0, TIMING);
-    runOnJS(setSelected)(null);
+
+  // Full-screen swipe-to-open (FR-025): the same pan math as the handle, but
+  // armed across the whole closed screen like a phone's status-bar shade.
+  // `activeOffsetY([-12, 9999])` = activate only after ~12px of UPWARD travel,
+  // never on downward movement — so simple taps and horizontal swipes pass
+  // through untouched. The overlay sits on top of the scrim, so it also owns
+  // "tap above the open sheet to close" (the tap is a no-op while closed).
+  const fullScreenPan = makePan().activeOffsetY([-12, 9999]);
+  const overlayTap = Gesture.Tap().onEnd(() => {
+    if (progress.value > 0.5) {
+      progress.value = withTiming(0, TIMING);
+      runOnJS(setSelected)(null);
+    }
   });
+  const fullScreenGesture = Gesture.Race(fullScreenPan, overlayTap);
 
   // Sheet slides up: translateY from sheetH (hidden) to 0 (open).
   const sheetStyle = useAnimatedStyle(() => ({
@@ -96,9 +118,15 @@ function CalendarSheet({ today, entries, onSet, onClear, progress, height }: Cal
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {/* scrim — dims the fire; tap to close */}
-      <GestureDetector gesture={scrimTap}>
-        <Animated.View style={[styles.scrim, scrimStyle]} pointerEvents="auto" />
+      {/* scrim — dims the fire (visual only; the overlay above handles touches) */}
+      <Animated.View style={[styles.scrim, scrimStyle]} pointerEvents="none" />
+
+      {/* full-screen pull surface (FR-025): swipe up anywhere to open; tap to
+          close while open. Sits under the gear/dev pill (they win via zIndex)
+          and under the sheet + handle (later siblings), so it never steals
+          their touches. */}
+      <GestureDetector gesture={fullScreenGesture}>
+        <Animated.View style={StyleSheet.absoluteFill} pointerEvents="auto" />
       </GestureDetector>
 
       {/* closed-state affordance: swipe up / tap to open */}

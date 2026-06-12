@@ -1,25 +1,22 @@
 /**
- * useSettings.ts — React hook for user preferences (currently the flame color).
+ * useSettings.ts — React hook for user preferences (the active flame style).
  *
  * Loads the saved settings once on mount (flipping `ready` to true), and exposes
- * `setFlameColor` which validates the choice, updates state, and persists it.
- * Persistence is fire-and-forget — the data is local and tiny, and a write
- * failure shouldn't block the UI.
+ * `setFlameStyle` which validates the id against the catalog, updates state, and
+ * persists it. Any catalog id is accepted — including LOCKED flames, which the
+ * user may equip and see rendered embered until earned (FR-012). Persistence is
+ * fire-and-forget: the data is local and tiny, and a write failure shouldn't
+ * block the UI.
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { FLAME_COLORS, type FlameColor } from '../theme/palettes';
-import {
-  DEFAULT_SETTINGS,
-  loadSettings,
-  saveSettings,
-  type Settings,
-} from '../data/settingsStore';
+import { flameById, type FlameId } from '../domain/flames';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../data/settingsStore';
 
 export interface UseSettings {
   settings: Settings;
   ready: boolean; // false until the first load completes
-  setFlameColor: (color: FlameColor) => void;
+  setFlameStyle: (id: FlameId) => void;
 }
 
 export function useSettings(): UseSettings {
@@ -40,16 +37,18 @@ export function useSettings(): UseSettings {
     };
   }, []);
 
-  const setFlameColor = useCallback((color: FlameColor) => {
-    if (!FLAME_COLORS.includes(color)) {
-      return; // ignore unknown values
+  const setFlameStyle = useCallback((id: FlameId) => {
+    // A real catalog id resolves to itself; an unknown id resolves to the base
+    // flame instead, so a mismatch means the id is bogus and we ignore it.
+    if (flameById(id).id !== id) {
+      return;
     }
     setSettings(prev => {
-      const next = { ...prev, flameColor: color };
+      const next = { ...prev, flameStyle: id };
       saveSettings(next).catch(() => {});
       return next;
     });
   }, []);
 
-  return { settings, ready, setFlameColor };
+  return { settings, ready, setFlameStyle };
 }

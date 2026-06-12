@@ -1,26 +1,28 @@
 /**
- * SettingsSheet.tsx — the top-right settings button and its color picker.
+ * SettingsSheet.tsx — the top-right gear that opens the flame gallery.
  *
- * Tapping the gear opens a small panel to choose the flame color
- * (Amber / Crimson / Sapphire). Choosing one recolors the flame immediately
- * (the parent feeds the choice into the palette) and persists it (FR-016/FR-017).
- *
- * Each swatch previews its palette's `core`/`ember` stops so the choice is
- * obvious at a glance.
+ * Tapping the gear opens `FlameGallery`, where the user browses the whole flame
+ * catalog and equips one (locked flames included — they render embered until
+ * earned). The old three-color picker is gone; flame selection now lives in the
+ * gallery, driven by the derived achievement `states`.
  */
 
 import React, { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { FLAME_COLORS, PALETTES, type FlameColor } from '../../theme/palettes';
-import { bg2, core, ink, inkDim, line } from '../../theme/tokens';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import type { AchievementState } from '../../domain/achievements';
+import type { FlameId } from '../../domain/flames';
+import FlameGallery from './FlameGallery';
+import { ink, line } from '../../theme/tokens';
 
 interface SettingsSheetProps {
-  flameColor: FlameColor;
-  onChange: (color: FlameColor) => void;
-  top: number; // safe-area top inset, to place the button below the status bar
+  states: Record<FlameId, AchievementState>; // unlock state per flame (for the gallery)
+  activeId: FlameId; // the currently equipped flame
+  onEquip: (id: FlameId) => void; // equip a flame by id
+  newlyUnlocked: FlameId[]; // flames that just flipped to unlocked (FR-023 feedback)
+  top: number; // safe-area top inset, to place the gear below the status bar
 }
 
-function SettingsSheet({ flameColor, onChange, top }: SettingsSheetProps) {
+function SettingsSheet({ states, activeId, onEquip, newlyUnlocked, top }: SettingsSheetProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -28,40 +30,19 @@ function SettingsSheet({ flameColor, onChange, top }: SettingsSheetProps) {
       <Pressable
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel="Settings: choose flame color"
+        accessibilityLabel="Settings: choose flame"
         style={({ pressed }) => [styles.gear, { top: top + 6 }, pressed && styles.gearPressed]}>
         <Text style={styles.gearIcon}>⚙</Text>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={styles.panel} onPress={() => {}}>
-            <Text style={styles.title}>Flame color</Text>
-            {FLAME_COLORS.map(color => {
-              const pal = PALETTES[color];
-              const active = color === flameColor;
-              return (
-                <Pressable
-                  key={color}
-                  onPress={() => {
-                    onChange(color);
-                    setOpen(false);
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: active }}
-                  accessibilityLabel={color}
-                  style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
-                  <View style={[styles.swatch, { backgroundColor: pal.ember, borderColor: pal.core }]}>
-                    <View style={[styles.swatchCore, { backgroundColor: pal.core }]} />
-                  </View>
-                  <Text style={styles.rowLabel}>{color}</Text>
-                  {active && <Text style={styles.check}>✓</Text>}
-                </Pressable>
-              );
-            })}
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <FlameGallery
+        visible={open}
+        onClose={() => setOpen(false)}
+        states={states}
+        activeId={activeId}
+        onEquip={onEquip}
+        newlyUnlocked={newlyUnlocked}
+      />
     </>
   );
 }
@@ -82,51 +63,6 @@ const styles = StyleSheet.create({
   },
   gearPressed: { transform: [{ scale: 0.92 }] },
   gearIcon: { fontSize: 18, color: ink },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(3,5,12,0.5)',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    paddingTop: 96,
-    paddingRight: 14,
-  },
-  panel: {
-    minWidth: 200,
-    backgroundColor: bg2,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: line,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  title: {
-    color: inkDim,
-    fontSize: 12,
-    fontWeight: '600',
-    letterSpacing: 0.4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 12,
-  },
-  rowPressed: { backgroundColor: 'rgba(255,255,255,0.05)' },
-  swatch: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  swatchCore: { width: 8, height: 8, borderRadius: 4 },
-  rowLabel: { flex: 1, color: ink, fontSize: 15, fontWeight: '600' },
-  check: { color: core, fontSize: 16, fontWeight: '700' },
 });
 
 export default React.memo(SettingsSheet);

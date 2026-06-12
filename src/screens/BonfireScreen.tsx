@@ -32,7 +32,7 @@ import SettingsSheet from '../components/Settings/SettingsSheet';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
 import { useEntries } from '../hooks/useEntries';
 import { useSettings } from '../hooks/useSettings';
-import { paletteFor } from '../theme/palettes';
+import { useFlames } from '../hooks/useFlames';
 import { bg0, bg1, gold, inkDim } from '../theme/tokens';
 
 function BonfireScreen() {
@@ -45,9 +45,17 @@ function BonfireScreen() {
   const today: DateKey = useMemo(() => addDays(realToday, devOffset), [realToday, devOffset]);
 
   const { entries, fire, ready: entriesReady, setScore, clearScore } = useEntries(today);
-  const { settings, ready: settingsReady, setFlameColor } = useSettings();
+  const { settings, ready: settingsReady, setFlameStyle } = useSettings();
 
-  const palette = useMemo(() => paletteFor(settings.flameColor), [settings.flameColor]);
+  // Derive every flame's unlock state + what the active flame should render
+  // (full palette when unlocked, dim "embered" palette when locked). Memoized
+  // off the render path so switching flames never drops frames (SC-010).
+  const { states, effectivePalette, dim, newlyUnlocked } = useFlames(
+    entries,
+    today,
+    fire,
+    settings.flameStyle,
+  );
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
   // Calendar open progress (0..1), shared with the flame so it lifts as we open.
@@ -70,18 +78,28 @@ function BonfireScreen() {
         pointerEvents="none"
       />
 
-      {/* the fire scene (GPU flame + embers, then hearth + caption on top) */}
+      {/* the fire scene (GPU flame + embers, then hearth + caption on top).
+          Out-state precedence (US2): `Flame` hides itself whenever the fire is
+          not lit, so a locked/embered flame is NEVER drawn while the fire is out
+          — the Hearth's smoke wins. The embered palette + `dim` only take effect
+          when the fire is lit but the equipped flame is still locked. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Flame fire={fire} palette={palette} width={width} height={height} lift={progress} />
+        <Flame fire={fire} palette={effectivePalette} width={width} height={height} lift={progress} dim={dim} />
         <View style={StyleSheet.absoluteFill}>
-          <Embers width={width} height={height} intensity={visual.intensity} palette={palette} />
+          <Embers width={width} height={height} intensity={visual.intensity} palette={effectivePalette} />
         </View>
         <Hearth fire={fire} glow={visual.glow} />
         <FireCaption fire={fire} lift={progress} />
       </View>
 
-      {/* settings (top-right) */}
-      <SettingsSheet flameColor={settings.flameColor} onChange={setFlameColor} top={insets.top} />
+      {/* settings (top-right): the gear opens the flame gallery */}
+      <SettingsSheet
+        states={states}
+        activeId={settings.flameStyle}
+        onEquip={setFlameStyle}
+        newlyUnlocked={newlyUnlocked}
+        top={insets.top}
+      />
 
       {/* dev-only advance-a-day pill (mirrors the design's dev pill) */}
       {__DEV__ && (
