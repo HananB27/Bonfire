@@ -273,6 +273,70 @@ test('equipping a LOCKED flame id is a no-op: nothing renders, nothing persists 
   expect(raw === null || (JSON.parse(raw).flameStyle ?? 'amber') === 'amber').toBe(true);
 });
 
+// ---- 004: activeStyle wiring + out-state precedence for profiles ----
+
+// The Embers element: it has `intensity` + `palette` but no `fire`/`dim`.
+function findEmbers(tree: ReactTestRenderer.ReactTestRenderer) {
+  return tree.root.find(
+    n => n.props && typeof n.props.intensity === 'number' && n.props.palette && !('fire' in n.props),
+  );
+}
+
+test('the active FlameStyle is passed to Flame, alongside palette/dim/lift (004 US1)', async () => {
+  const tree = await renderScreen();
+  const flame = findFlame(tree);
+  // activeStyle reaches the flame and carries the BonfireDesign visualProfile…
+  expect(flame.props.activeStyle.id).toBe('amber');
+  expect(flame.props.activeStyle.visualProfile.shape.variant).toBe('classic');
+  // …while every prior prop still passes through unchanged.
+  expect(flame.props.palette).toBeTruthy();
+  expect(typeof flame.props.dim).toBe('number');
+  expect(typeof flame.props.width).toBe('number');
+  expect(typeof flame.props.height).toBe('number');
+  expect(flame.props.lift).toBeTruthy();
+});
+
+test('the active FlameStyle is passed to Embers for its particle mix (004 US3)', async () => {
+  const tree = await renderScreen();
+  const embers = findEmbers(tree);
+  expect(embers.props.activeStyle.id).toBe('amber');
+  expect(Array.isArray(embers.props.activeStyle.visualProfile.particles)).toBe(true);
+});
+
+test('equipping a flame swaps the visualProfile reaching Flame and Embers (004 US1/US3)', async () => {
+  const tree = await renderScreen();
+
+  // Earn + equip Crimson.
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 5');
+  await press(tree, 'Advance one day');
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 5');
+  await press(tree, 'choose flame');
+  await act(async () => {
+    flameRow(tree, 'Crimson').props.onPress();
+  });
+
+  expect(findFlame(tree).props.activeStyle.id).toBe('crimson');
+  expect(findFlame(tree).props.activeStyle.visualProfile.shape.edge).toBe('sharp');
+  expect(findEmbers(tree).props.activeStyle.id).toBe('crimson');
+});
+
+test('out-state precedence: the live flame is hidden when the fire goes out (004 US5)', async () => {
+  const tree = await renderScreen();
+
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 3'); // lit
+  for (let i = 0; i < 3; i++) await press(tree, 'Advance one day'); // → out
+
+  // The flame still receives its profile, but its fire prop says `out`, so the
+  // component hides itself (no live flame / profile accents are drawn).
+  const flame = findFlame(tree);
+  expect(flame.props.fire.state).toBe('out');
+  // Embers intensity collapses to 0 when not lit → profile particles vanish too.
+  expect(findEmbers(tree).props.intensity).toBe(0);
+});
+
 test('equipping an UNLOCKED flame id still persists as before (FR-003)', async () => {
   const tree = await renderScreen();
 

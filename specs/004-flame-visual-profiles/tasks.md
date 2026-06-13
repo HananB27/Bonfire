@@ -1,154 +1,192 @@
 # Tasks: Flame Visual Profiles
 
-**Input**: Design documents from `/specs/004-flame-visual-profiles/`
+**Input**: Design documents from `specs/004-flame-visual-profiles/`
 
-**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/, quickstart.md
+**Prerequisites**: `plan.md`, `spec.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
 
-**Tests**: Required by Bonfire Constitution. Write/update tests before implementation in each phase.
+**Tests**: Required by constitution and plan. Write/adjust tests before implementation tasks in each story.
 
-**Organization**: Tasks are grouped by user story to enable independent implementation and testing.
+**Organization**: Tasks grouped by user story for independent implementation and validation. BonfireDesign is mandatory source of truth.
 
 ## Format: `[ID] [P?] [Story] Description`
 
-- **[P]**: Can run in parallel (different files, no dependencies)
-- **[Story]**: Which user story task belongs to (US1, US2, US3, US4)
-- Include exact file paths in descriptions
+- **[P]**: Can run in parallel with other [P] tasks in same phase after prior dependencies are complete
+- **[Story]**: User story label from `spec.md`
+- Every task includes exact file paths
 
 ## Phase 1: Setup (Shared Infrastructure)
 
-**Purpose**: Confirm active artifacts and current code entry points before touching implementation.
+**Purpose**: Confirm current context, source references, and generated task inputs before implementation.
 
-- [ ] T001 Review profile requirements and contracts in specs/004-flame-visual-profiles/spec.md, specs/004-flame-visual-profiles/data-model.md, and specs/004-flame-visual-profiles/contracts/visual-profile-data.md
-- [ ] T002 Review renderer and particle contracts in specs/004-flame-visual-profiles/contracts/renderer-profile-contract.md and specs/004-flame-visual-profiles/contracts/particle-variants.md
-- [ ] T003 Review current flame catalog and active-style flow in src/domain/flames.ts, src/hooks/useFlames.ts, and src/screens/BonfireScreen.tsx
-- [ ] T004 Review current Skia render hot paths in src/components/Bonfire/Flame.tsx, src/components/Bonfire/Embers.tsx, and src/components/Bonfire/flameModel.ts
+- [X] T001 Review BonfireDesign source files `BonfireDesign/flame-profiles.js`, `BonfireDesign/flame-renderer.jsx`, `BonfireDesign/flame-catalog.css`, and `BonfireDesign/screenshots/*`
+- [X] T002 [P] Review feature requirements in `specs/004-flame-visual-profiles/spec.md`
+- [X] T003 [P] Review implementation plan and research decisions in `specs/004-flame-visual-profiles/plan.md` and `specs/004-flame-visual-profiles/research.md`
+- [X] T004 [P] Review data model and contracts in `specs/004-flame-visual-profiles/data-model.md`, `specs/004-flame-visual-profiles/contracts/visual-profile-data.md`, `specs/004-flame-visual-profiles/contracts/renderer-profile-contract.md`, and `specs/004-flame-visual-profiles/contracts/particle-variants.md`
+- [X] T005 [P] Review current flame data and active-style flow in `src/domain/flames.ts`, `src/hooks/useFlames.ts`, and `src/screens/BonfireScreen.tsx`
+- [X] T006 [P] Review current Skia render hot paths in `src/components/Bonfire/Flame.tsx`, `src/components/Bonfire/Embers.tsx`, and `src/components/Bonfire/flameModel.ts`
 
 ---
 
 ## Phase 2: Foundational (Blocking Prerequisites)
 
-**Purpose**: Add typed profile contracts and safe defaults that all user stories depend on.
+**Purpose**: Add shared data contracts and test scaffolding required by every story.
 
-**Critical**: No user story work can begin until this phase is complete.
+**Critical**: No story implementation should start until this phase is complete.
 
-- [ ] T005 Add VisualProfile, ShapeProfile, MotionProfile, ParticleProfile, AuraProfile, StrengthResponse, and variant union types to src/domain/flames.ts
-- [ ] T006 Add an Amber-like DEFAULT_VISUAL_PROFILE fallback and safe profile getter/export in src/domain/flames.ts
-- [ ] T007 [P] Add profile validation test helpers in __tests__/flames.catalog.test.ts for required sections, numeric bounds, variant names, and no missing visualProfile data
-- [ ] T008 [P] Add pure helper test scaffolding in __tests__/flameModel.test.ts for profile strength response and renderer descriptor mapping
-- [ ] T009 Add catalog builder support for visualProfile while preserving existing palette, embered palette, achievement, rarity, and drift behavior in src/domain/flames.ts
+- [X] T007 Add `VisualProfile`, `ShapeProfile`, `TongueTransform`, `MotionProfile`, `ParticleProfile`, `AuraProfile`, `AccentProfile`, `PaletteIntent`, `DesignReference`, and `StrengthResponse` TypeScript types in `src/domain/flames.ts`
+- [X] T008 Add `BONFIRE_DESIGN_SOURCE`, `DEFAULT_VISUAL_PROFILE`, and `safeVisualProfile` exports in `src/domain/flames.ts`
+- [X] T009 Update the `flame()` catalog builder to accept optional `visualProfile` without changing `id`, `achievement`, `palette`, `embered`, `rarity`, or `drift` behavior in `src/domain/flames.ts`
+- [X] T010 [P] Add BonfireDesign parity fixture expectations for all 20 flame ids, design numbers, variants, edges, aura kinds, accents, particle kinds, and special scale traits in `__tests__/flames.catalog.test.ts`
+- [X] T011 [P] Add shared profile descriptor test scaffolding for fallback, shape, motion, particle, aura, and accent helpers in `__tests__/flameModel.test.ts`
+- [X] T012 [P] Add renderer prop-wiring test scaffolding for `activeStyle`, `palette`, `dim`, and `intensity` in `__tests__/BonfireScreen.test.tsx`
+- [X] T013 Add pure helper stubs for `resolveVisualProfile`, `resolveShapeDescriptor`, `resolveMotionDescriptor`, `resolveParticleDescriptors`, `resolveAuraDescriptor`, and `resolveStrengthVisuals` in `src/components/Bonfire/flameModel.ts`
 
-**Checkpoint**: Profile types and fallback exist; catalog can carry profile data without renderer changes.
-
----
-
-## Phase 3: User Story 1 - Flames Have Distinct Silhouettes (Priority: P1) - MVP
-
-**Goal**: Every active flame has data-driven shape traits, and `Flame.tsx` renders reusable silhouette variants without per-flame id branches.
-
-**Independent Test**: Equip each of the 20 flames and verify its visible silhouette differs from Amber by tongue count, proportions, or shared shape variant, without relying only on color.
-
-### Tests for User Story 1
-
-- [ ] T010 [P] [US1] Add catalog assertions for all 20 flame shape profiles and feature-map identities in __tests__/flames.catalog.test.ts
-- [ ] T011 [P] [US1] Add shape descriptor and fallback behavior tests in __tests__/flameModel.test.ts
-- [ ] T012 [US1] Add BonfireScreen prop-wiring regression test proving activeStyle reaches Flame while palette and dim still reach Flame in __tests__/BonfireScreen.test.tsx
-
-### Implementation for User Story 1
-
-- [ ] T013 [US1] Add complete visualProfile.shape data for all 20 existing flames in src/domain/flames.ts
-- [ ] T014 [US1] Update FlameProps to accept activeStyle while keeping palette and dim props in src/components/Bonfire/Flame.tsx
-- [ ] T015 [US1] Pass activeStyle from useFlames into Flame in src/screens/BonfireScreen.tsx
-- [ ] T016 [US1] Add pure shape descriptor helpers that map ShapeProfile to reusable tongue geometry inputs in src/components/Bonfire/flameModel.ts
-- [ ] T017 [US1] Replace fixed five-tongue geometry with profile-driven reusable tongue descriptors in src/components/Bonfire/Flame.tsx
-- [ ] T018 [US1] Add shared shape variant drawing support for classic, split, forked, jagged, twin, lance, crown, ribbon, wing, layered, warped, and detached variants in src/components/Bonfire/Flame.tsx
-- [ ] T019 [US1] Ensure missing or invalid visualProfile falls back to DEFAULT_VISUAL_PROFILE in src/components/Bonfire/Flame.tsx
-
-**Checkpoint**: US1 complete; 20 flame silhouettes are data-driven and independently testable.
+**Checkpoint**: Types, fallback, catalog builder, and helper/test scaffolds exist.
 
 ---
 
-## Phase 4: User Story 4 - Existing Gameplay and Gallery Rules Stay Unchanged (Priority: P1)
+## Phase 3: User Story 4 - BonfireDesign Catalog Parity (Priority: P1)
 
-**Goal**: Visual profiles do not change unlock logic, storage, gallery behavior, fire strength math, locked embered state, or out-state precedence.
+**Goal**: Product catalog contains all 20 BonfireDesign-derived profile rows with traceable design metadata.
 
-**Independent Test**: Run existing unlock, storage, gallery, and fire-strength scenarios; outcomes stay identical except rendered visuals.
+**Independent Test**: Run catalog tests and verify each `FlameStyle.visualProfile` matches `BonfireDesign/flame-profiles.js` tokens and labels without rendering the app.
 
 ### Tests for User Story 4
 
-- [ ] T020 [P] [US4] Extend catalog tests to assert visualProfile does not modify achievement, palette, embered palette, rarity, or drift fields in __tests__/flames.catalog.test.ts
-- [ ] T021 [P] [US4] Add BonfireScreen regression tests proving activeStyle reaches Embers, palette/dim behavior remains locked-embered, and storage selection behavior is unchanged in __tests__/BonfireScreen.test.tsx
-- [ ] T022 [P] [US4] Add gallery regression tests proving locked display, active-state display, and locked-tap rejection remain unchanged in __tests__/FlameGallery.test.tsx
-- [ ] T023 [P] [US4] Add or update fire strength invariance tests proving profile data does not change fire strength values in __tests__/fire.test.ts
+- [X] T014 [P] [US4] Add failing tests for required `visualProfile` sections, `source`, `designNumber`, `designTier`, `tagline`, and six non-empty `designRef` labels in `__tests__/flames.catalog.test.ts`
+- [X] T015 [P] [US4] Add failing tests for BonfireDesign order and identity coverage across all 20 existing flame ids in `__tests__/flames.catalog.test.ts`
+- [X] T016 [P] [US4] Add failing tests for BonfireDesign special traits: `inferno.footprint`, `nebula.footprint`, `solfire.shape.coreScale`, `ghostlight.paletteIntent.opacity`, `spectral.paletteIntent.opacity`, and `voidfire.paletteIntent.invert` in `__tests__/flames.catalog.test.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T024 [US4] Pass activeStyle from useFlames into Embers while preserving effectivePalette and intensity props in src/screens/BonfireScreen.tsx
-- [ ] T025 [US4] Update EmbersProps to accept activeStyle while preserving palette-derived color behavior in src/components/Bonfire/Embers.tsx
-- [ ] T026 [US4] Preserve out-state precedence and locked embered dim handling after profile wiring in src/components/Bonfire/Flame.tsx and src/components/Bonfire/Embers.tsx
-- [ ] T027 [US4] Verify useFlames return shape, existing settings persistence, and FlameRow locked/active presentation remain unchanged in src/hooks/useFlames.ts, src/hooks/useSettings.ts, and src/components/Settings/FlameRow.tsx
+- [X] T017 [US4] Add complete BonfireDesign `visualProfile` rows for Amber, Crimson, Sapphire, Sodium, Strontium, Emerald, Lilac, and Magenta in `src/domain/flames.ts`
+- [X] T018 [US4] Add complete BonfireDesign `visualProfile` rows for Ghostlight, Toxic, Wisp, Ember, Spectral, Frostfire, Inferno, and Solfire in `src/domain/flames.ts`
+- [X] T019 [US4] Add complete BonfireDesign `visualProfile` rows for Voidfire, Aurora, Phoenix, and Nebula in `src/domain/flames.ts`
+- [X] T020 [US4] Add all BonfireDesign `designRef` silhouette, core, aura, particles, motion, and implementation-intent labels to the 20 profile rows in `src/domain/flames.ts`
+- [X] T021 [US4] Add validation helper assertions that detect missing profile tokens and missing design labels in `__tests__/flames.catalog.test.ts`
 
-**Checkpoint**: US4 complete; existing behavior is guarded before advanced motion and particles are added.
+**Checkpoint**: All 20 catalog profiles statically match BonfireDesign data and labels.
 
 ---
 
-## Phase 5: User Story 2 - Motion Expresses Elemental Identity (Priority: P2)
+## Phase 4: User Story 1 - Flames Have Distinct Silhouettes (Priority: P1)
 
-**Goal**: Flame motion and profile-specific strength response express identity without changing fire strength math or adding per-frame JS work.
+**Goal**: Active flames render BonfireDesign silhouettes, shape variants, tongue transforms, edge treatments, footprint, opacity, inversion, and core-scale traits.
 
-**Independent Test**: Observe each flame for 5 seconds and verify profile-defined flicker, sway, stretch, pulse, hue shift, low-gravity feel, and strength response match the catalog.
+**Independent Test**: Equip each flame and compare its silhouette against BonfireDesign; static tests confirm renderer descriptors for all shape variants.
+
+### Tests for User Story 1
+
+- [X] T022 [P] [US1] Add failing shape descriptor tests for `classic`, `lance`, `split`, `forked`, `twin`, `wide`, `warped`, `detached`, `squat`, `layered`, `crystal`, `crown`, `solar`, `inverted`, `ribbon`, and `wing` in `__tests__/flameModel.test.ts`
+- [X] T023 [P] [US1] Add failing fallback tests for malformed or missing profiles resolving to Amber-like safe profile descriptors in `__tests__/flameModel.test.ts`
+- [X] T024 [P] [US1] Add failing `BonfireScreen` test proving `activeStyle` reaches `Flame` while `palette`, `dim`, `width`, `height`, and `lift` still pass through in `__tests__/BonfireScreen.test.tsx`
+
+### Implementation for User Story 1
+
+- [X] T025 [US1] Update `FlameProps` to accept `activeStyle` while preserving `fire`, `palette`, `width`, `height`, `lift`, and `dim` props in `src/components/Bonfire/Flame.tsx`
+- [X] T026 [US1] Pass `activeStyle` from `useFlames` into `Flame` in `src/screens/BonfireScreen.tsx`
+- [X] T027 [US1] Implement profile fallback and shape descriptor mapping for tongue transforms, edge treatment, footprint, core scale, opacity, and inverted core in `src/components/Bonfire/flameModel.ts`
+- [X] T028 [US1] Replace fixed five-tongue path generation with profile-driven tongue descriptor generation in `src/components/Bonfire/Flame.tsx`
+- [X] T029 [US1] Implement Skia shape support for `classic`, `lance`, `wide`, `squat`, `solar`, and `inverted` variants in `src/components/Bonfire/Flame.tsx`
+- [X] T030 [US1] Implement Skia multi-tongue support for `split`, `forked`, `twin`, `crown`, `wing`, and `ribbon` variants in `src/components/Bonfire/Flame.tsx`
+- [X] T031 [US1] Implement Skia support for `layered`, `detached`, `warped`, and `crystal` variants, including ghost layers, floating fragments, warped outline equivalents, and crystal edge equivalents in `src/components/Bonfire/Flame.tsx`
+- [X] T032 [US1] Apply profile `paletteIntent.opacity`, `paletteIntent.invert`, `footprint`, and `shape.coreScale` to Skia layer opacity, core drawing, group scale, and core dimensions in `src/components/Bonfire/Flame.tsx`
+
+**Checkpoint**: Each flame has a non-color silhouette difference matching BonfireDesign.
+
+---
+
+## Phase 5: User Story 5 - Existing Gameplay and Gallery Rules Stay Unchanged (Priority: P1)
+
+**Goal**: Visual profiles do not alter unlock logic, selected-flame storage, gallery behavior, fire strength math, locked embered dimming, or out-state precedence.
+
+**Independent Test**: Existing unlock, storage, gallery, palette, and fire tests pass unchanged except for intentional prop additions.
+
+### Tests for User Story 5
+
+- [X] T033 [P] [US5] Add regression tests proving `visualProfile` does not change achievement params, palette sampling, embered palette, rarity ordering, or drift data in `__tests__/flames.catalog.test.ts`
+- [X] T034 [P] [US5] Add regression tests proving fire strength values are identical before and after profile helper resolution in `__tests__/fire.test.ts`
+- [X] T035 [P] [US5] Add regression tests proving settings storage persists only flame id and no `visualProfile` data in `__tests__/settingsStore.test.ts`
+- [X] T036 [P] [US5] Add regression tests proving gallery locked display, active-state display, and locked tap rejection remain unchanged in `__tests__/FlameGallery.test.tsx`
+- [X] T037 [P] [US5] Add regression tests proving out-state precedence hides live flame and profile particles when fire state is `out` or `unlit` in `__tests__/BonfireScreen.test.tsx`
+
+### Implementation for User Story 5
+
+- [X] T038 [US5] Verify `useFlames` still derives `states`, `activeStyle`, `effectivePalette`, `dim`, and `newlyUnlocked` without storing profile data in `src/hooks/useFlames.ts`
+- [X] T039 [US5] Preserve locked embered dim behavior when `activeStyle` is passed into `Flame` and `Embers` in `src/screens/BonfireScreen.tsx`
+- [X] T040 [US5] Preserve out-state precedence for profile-driven flame layers and particle layers in `src/components/Bonfire/Flame.tsx` and `src/components/Bonfire/Embers.tsx`
+- [X] T041 [US5] Verify settings persistence and flame equip guard still reject unavailable flames in `src/hooks/useSettings.ts`, `src/data/settingsStore.ts`, and `src/screens/BonfireScreen.tsx`
+
+**Checkpoint**: Current gameplay, persistence, gallery, and fire math behavior remain unchanged.
+
+---
+
+## Phase 6: User Story 2 - Motion Expresses Elemental Identity (Priority: P2)
+
+**Goal**: Flames use BonfireDesign motion families, speed, sway, pulse, phase lag, float, warp, ribbon, hue drift, and strength response.
+
+**Independent Test**: Observe each flame for 5 seconds and verify motion matches BonfireDesign expectations; helper tests confirm motion descriptors.
 
 ### Tests for User Story 2
 
-- [ ] T028 [P] [US2] Add motion profile assertions for all 20 flames in __tests__/flames.catalog.test.ts
-- [ ] T029 [P] [US2] Add strength response helper tests for size, motion, particle, and aura scaling without fire strength mutation in __tests__/flameModel.test.ts
+- [X] T042 [P] [US2] Add failing motion parity tests for all 20 `motion.family`, `motion.speed`, `sway`, `pulse`, `hueDrift`, `warp`, and `ribbon` values in `__tests__/flames.catalog.test.ts`
+- [X] T043 [P] [US2] Add failing motion descriptor tests for smooth, harsh, low-gravity float, coal pulse, core pulse, hue drift, warped outline, ribbon wave, and per-tongue lag behavior in `__tests__/flameModel.test.ts`
+- [X] T044 [P] [US2] Add failing strength-response tests proving size, motion, particle, aura, and accent scaling reads existing strength without mutating fire strength in `__tests__/flameModel.test.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Add complete visualProfile.motion and visualProfile.strengthResponse data for all 20 flames in src/domain/flames.ts
-- [ ] T031 [US2] Add pure profile motion and strength response resolver helpers in src/components/Bonfire/flameModel.ts
-- [ ] T032 [US2] Apply profile flickerSpeed, sway, stretch, pulse, hueShift, gravity, and strengthResponse values to derived transforms in src/components/Bonfire/Flame.tsx
-- [ ] T033 [US2] Keep reduced-motion behavior and UI-thread clock behavior intact while adding profile motion in src/components/Bonfire/Flame.tsx
+- [X] T045 [US2] Implement profile motion descriptor mapping for `family`, `speed`, `sway`, `pulse`, `hueDrift`, `warp`, `ribbon`, `lag`, and `float` in `src/components/Bonfire/flameModel.ts`
+- [X] T046 [US2] Apply smooth and harsh flicker families plus BonfireDesign speed multipliers to tongue transforms in `src/components/Bonfire/Flame.tsx`
+- [X] T047 [US2] Apply per-tongue `lag`, detached-fragment `float`, group `sway`, `pulse`, `hueDrift`, `warp`, and `ribbon` motion behavior in `src/components/Bonfire/Flame.tsx`
+- [X] T048 [US2] Implement `resolveStrengthVisuals` for profile-specific size, motion, particle, aura, and accent scaling without changing `flameVisual(fire)` outputs in `src/components/Bonfire/flameModel.ts`
+- [X] T049 [US2] Keep reduced-motion behavior freezing or minimizing all profile motion loops in `src/components/Bonfire/Flame.tsx` and `src/components/Bonfire/Embers.tsx`
 
-**Checkpoint**: US2 complete; motion identity works independently on top of US1/US4.
+**Checkpoint**: Motion identity matches BonfireDesign without changing gameplay math.
 
 ---
 
-## Phase 6: User Story 3 - Particles and Aura Match Each Flame (Priority: P3)
+## Phase 7: User Story 3 - Particles and Aura Match Each Flame (Priority: P3)
 
-**Goal**: Each flame emits profile-driven particles and aura accents that match its elemental identity using shared configurable effects.
+**Goal**: Flames emit BonfireDesign particles, aura kinds, aura modifiers, and accents including rings, solar circle, shock pulse, afterimages, aurora band, and multi-variant particle mixes.
 
-**Independent Test**: Equip every flame and verify particle variant, count, size, rise speed, drift, color source, motif, halo shape, intensity, secondary glows, and ring/orbit accents match the feature map.
+**Independent Test**: Equip every flame and verify particle/aura/accent behavior against BonfireDesign; helper tests confirm all variants and mixes.
 
 ### Tests for User Story 3
 
-- [ ] T034 [US3] Add particle and aura profile assertions for all 20 flames in __tests__/flames.catalog.test.ts
-- [ ] T035 [US3] Add particle variant descriptor tests for sparks, motes, ash, bubbles, shards, wisps, and stars in __tests__/flameModel.test.ts
-- [ ] T036 [P] [US3] Add palette-derived particle color regression tests for non-orange variants in __tests__/palettes.test.ts
+- [X] T050 [P] [US3] Add failing particle parity tests for all 20 flame `particles` arrays, including Ember, Solfire, Aurora, Phoenix, and Nebula multi-variant mixes in `__tests__/flames.catalog.test.ts`
+- [X] T051 [P] [US3] Add failing aura and accent parity tests for all 20 flame `aura` and `accents` values in `__tests__/flames.catalog.test.ts`
+- [X] T052 [P] [US3] Add failing particle descriptor tests for `sparks`, `motes`, `ash`, `bubbles`, `shards`, `wisps`, and `stars` in `__tests__/flameModel.test.ts`
+- [X] T053 [P] [US3] Add failing aura/accent descriptor tests for `oval`, `tall`, `wide`, `circular`, `ring`, `dim`, `crisp`, `afterimage`, `shockPulse`, `solarCircle`, `orbitRing`, `voidRing`, and `auroraBand` in `__tests__/flameModel.test.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T037 [US3] Add complete visualProfile.particles and visualProfile.aura data for all 20 flames in src/domain/flames.ts
-- [ ] T038 [US3] Add pure particle descriptor helpers for count, size, rise speed, drift, color source, motif, and bounded density in src/components/Bonfire/flameModel.ts
-- [ ] T039 [US3] Update Embers seed generation to memoize by dimensions and particle profile without regenerating seeds every render in src/components/Bonfire/Embers.tsx
-- [ ] T040 [US3] Implement shared Embers particle variants sparks, motes, ash, bubbles, shards, wisps, and stars in src/components/Bonfire/Embers.tsx
-- [ ] T041 [US3] Add profile-driven aura halo shapes, secondary glows, afterimage, ring, orbit, shock pulse, solar circle, crisp halo, and aurora band effects in src/components/Bonfire/Flame.tsx
-- [ ] T042 [US3] Ensure dense particles and aura accents remain behind the UI and do not obscure settings, gallery, or calendar controls in src/components/Bonfire/Flame.tsx and src/components/Bonfire/Embers.tsx
+- [X] T054 [US3] Update `EmbersProps` to accept `activeStyle` while preserving `palette`, `intensity`, `width`, and `height` props in `src/components/Bonfire/Embers.tsx`
+- [X] T055 [US3] Pass `activeStyle` from `useFlames` into `Embers` in `src/screens/BonfireScreen.tsx`
+- [X] T056 [US3] Implement particle descriptor mapping for BonfireDesign `kind`, `n`, `color`, `size`, `rise`, and `speed` controls in `src/components/Bonfire/flameModel.ts`
+- [X] T057 [US3] Replace fixed fire ember seed pool with profile-driven deterministic multi-variant seed pools memoized by dimensions, profile, palette, and intensity in `src/components/Bonfire/Embers.tsx`
+- [X] T058 [US3] Implement Skia particle drawing for `sparks`, `motes`, `ash`, `bubbles`, `shards`, `wisps`, and `stars` in `src/components/Bonfire/Embers.tsx`
+- [X] T059 [US3] Implement aura descriptor mapping for `oval`, `tall`, `wide`, `circular`, `ring`, `dim`, and `crisp` in `src/components/Bonfire/flameModel.ts`
+- [X] T060 [US3] Replace fixed halo sizing with profile-driven aura and ground-glow descriptors in `src/components/Bonfire/Flame.tsx`
+- [X] T061 [US3] Implement Skia accents for `afterimage`, `shockPulse`, `solarCircle`, `orbitRing`, `voidRing`, and `auroraBand` in `src/components/Bonfire/Flame.tsx`
+- [X] T062 [US3] Ensure dense particles and aura accents remain behind settings, gallery, and calendar controls in `src/components/Bonfire/Flame.tsx`, `src/components/Bonfire/Embers.tsx`, and `src/screens/BonfireScreen.tsx`
 
-**Checkpoint**: US3 complete; particle and aura identities are visible and reusable.
+**Checkpoint**: Particle, aura, and accent identity matches BonfireDesign.
 
 ---
 
-## Phase 7: Polish & Cross-Cutting Concerns
+## Phase 8: Polish & Cross-Cutting Concerns
 
-**Purpose**: Validate performance, documentation, comments, and full feature behavior across all stories.
+**Purpose**: Final validation, comments, and performance/design review across all stories.
 
-- [ ] T043 [P] Update beginner-readable headers and non-obvious inline comments for profile types and catalog authoring rules in src/domain/flames.ts
-- [ ] T044 [P] Update beginner-readable headers and non-obvious inline comments for profile-driven Skia rendering in src/components/Bonfire/Flame.tsx
-- [ ] T045 [P] Update beginner-readable headers and non-obvious inline comments for particle variants in src/components/Bonfire/Embers.tsx
-- [ ] T046 Run quickstart static validation commands npm run lint and npm test from specs/004-flame-visual-profiles/quickstart.md
-- [ ] T047 Run manual visual validation for all 20 flames, particle variants, and the SC-005 silent-clip identity recognition check using specs/004-flame-visual-profiles/quickstart.md
-- [ ] T048 Profile-check flame switching and gallery/calendar interaction against >=120 FPS flame and >=60 FPS UI targets documented in specs/004-flame-visual-profiles/plan.md
-- [ ] T049 Fix any lint, test, performance, readability, or visual regressions found during T046-T048 in src/domain/flames.ts, src/components/Bonfire/Flame.tsx, src/components/Bonfire/Embers.tsx, src/components/Bonfire/flameModel.ts, src/screens/BonfireScreen.tsx, and __tests__/
+- [X] T063 [P] Update beginner-readable profile type and catalog authoring comments in `src/domain/flames.ts`
+- [X] T064 [P] Update beginner-readable profile helper comments in `src/components/Bonfire/flameModel.ts`
+- [X] T065 [P] Update beginner-readable Skia renderer comments explaining BonfireDesign shape, motion, aura, and accent mappings in `src/components/Bonfire/Flame.tsx`
+- [X] T066 [P] Update beginner-readable particle variant comments explaining BonfireDesign particle mappings in `src/components/Bonfire/Embers.tsx`
+- [X] T067 Run `npm run lint` from repository root and fix any issues in `src/domain/flames.ts`, `src/components/Bonfire/flameModel.ts`, `src/components/Bonfire/Flame.tsx`, `src/components/Bonfire/Embers.tsx`, `src/screens/BonfireScreen.tsx`, and `__tests__/`
+- [X] T068 Run `npm test` from repository root and fix any failures in `src/domain/flames.ts`, `src/components/Bonfire/flameModel.ts`, `src/components/Bonfire/Flame.tsx`, `src/components/Bonfire/Embers.tsx`, `src/screens/BonfireScreen.tsx`, and `__tests__/`
+- [ ] T069 Run manual BonfireDesign parity validation from `specs/004-flame-visual-profiles/quickstart.md` using `BonfireDesign/flame-profiles.js`, `BonfireDesign/flame-renderer.jsx`, `BonfireDesign/flame-catalog.css`, and all files in `BonfireDesign/screenshots/*`
+- [ ] T070 Run SC-006 silent-clip identity validation by recording short silent clips for all 20 flames andW confirming reviewers identify at least 80% of flame identities in `specs/004-flame-visual-profiles/quickstart.md`
+- [ ] T071 Run manual performance validation with a concrete FPS/frame-timing tool for flame switching, gallery open/close, and calendar open/close, recording evidence that flame rendering stays >=120 FPS and UI interactions stay >=60 FPS in `specs/004-flame-visual-profiles/quickstart.md`
 
 ---
 
@@ -156,77 +194,102 @@
 
 ### Phase Dependencies
 
-- **Setup (Phase 1)**: No dependencies.
-- **Foundational (Phase 2)**: Depends on Setup; blocks all user stories.
-- **US1 (Phase 3)**: Depends on Foundational; MVP visual-profile data and silhouette renderer.
-- **US4 (Phase 4)**: Depends on Foundational and should run immediately after US1 to guard invariants.
-- **US2 (Phase 5)**: Depends on US1 and US4 because it builds on activeStyle/profile wiring.
-- **US3 (Phase 6)**: Depends on US1 and US4; can run in parallel with US2 after those are complete.
-- **Polish (Phase 7)**: Depends on all selected user stories.
+- **Setup (Phase 1)**: No dependencies
+- **Foundational (Phase 2)**: Depends on Setup; blocks all story work
+- **US4 Catalog Parity (Phase 3)**: Depends on Foundational; should finish before renderer stories because it supplies source data
+- **US1 Silhouettes (Phase 4)**: Depends on Foundational and benefits from US4 profile data
+- **US5 Invariants (Phase 5)**: Depends on Foundational and should run alongside/after US1 wiring changes
+- **US2 Motion (Phase 6)**: Depends on US1 profile-driven tongue renderer
+- **US3 Particles/Aura (Phase 7)**: Depends on US4 profile data and can run after US1 wiring; aura accents depend on US1 flame renderer
+- **Polish (Phase 8)**: Depends on all desired stories
 
 ### User Story Dependencies
 
-- **US1 (P1)**: Start after Foundational; no dependency on US2/US3/US4.
-- **US4 (P1)**: Start after Foundational; most valuable after US1 wiring exists.
-- **US2 (P2)**: Start after US1/US4; motion uses profile shape/wiring foundation.
-- **US3 (P3)**: Start after US1/US4; particles/aura use profile wiring and can proceed alongside US2.
+- **US4 (P1)**: Static catalog parity; no dependency on other stories after Foundation
+- **US1 (P1)**: Shape renderer; depends on Foundation and uses US4 profile rows
+- **US5 (P1)**: Regression guard; depends on Foundation and profile wiring from US1/US3 where relevant
+- **US2 (P2)**: Motion renderer; depends on US1 shape descriptor and render path
+- **US3 (P3)**: Particles/aura renderer; depends on US4 profile data and US1 flame renderer
 
-### Within Each User Story
+### Parallel Opportunities
 
-- Tests first; they should fail or expose missing profile behavior before implementation.
-- Catalog data before renderer behavior that consumes that data.
-- Pure helper changes before component integration.
-- Component integration before manual quickstart validation.
+- T002-T006 can run in parallel after T001
+- T010-T012 can run in parallel after T007-T009
+- T014-T016 can run in parallel before T017-T021
+- T022-T024 can run in parallel before T025-T032
+- T033-T037 can run in parallel before T038-T041
+- T042-T044 can run in parallel before T045-T049
+- T050-T053 can run in parallel before T054-T062
+- T063-T066 can run in parallel after story implementation
 
 ---
 
-## Parallel Opportunities
+## Parallel Example: User Story 4
 
-- T007 and T008 can run in parallel after T005-T006.
-- T010 and T011 can run in parallel before T013; T012 can run after BonfireScreen mocking context is understood.
-- T020, T021, T022, and T023 can run in parallel because they target different test files.
-- T028 and T029 can run in parallel.
-- T036 can run in parallel with T034/T035, but T034 and T035 must be coordinated with US2 tasks that touch the same test files.
-- T043, T044, and T045 can run in parallel after implementation stabilizes.
-- After US1 and US4 are complete, US2 and US3 can be implemented in parallel by different developers, with coordination on src/components/Bonfire/flameModel.ts.
+```bash
+Task: "T014 [P] [US4] Add required visualProfile section tests in __tests__/flames.catalog.test.ts"
+Task: "T015 [P] [US4] Add BonfireDesign order and identity tests in __tests__/flames.catalog.test.ts"
+Task: "T016 [P] [US4] Add BonfireDesign special trait tests in __tests__/flames.catalog.test.ts"
+```
+
+## Parallel Example: User Story 1
+
+```bash
+Task: "T022 [P] [US1] Add shape descriptor tests in __tests__/flameModel.test.ts"
+Task: "T023 [P] [US1] Add fallback tests in __tests__/flameModel.test.ts"
+Task: "T024 [P] [US1] Add Flame activeStyle wiring test in __tests__/BonfireScreen.test.tsx"
+```
+
+## Parallel Example: User Story 5
+
+```bash
+Task: "T033 [P] [US5] Add catalog invariance tests in __tests__/flames.catalog.test.ts"
+Task: "T034 [P] [US5] Add fire strength invariance tests in __tests__/fire.test.ts"
+Task: "T035 [P] [US5] Add settings storage tests in __tests__/settingsStore.test.ts"
+Task: "T036 [P] [US5] Add gallery regression tests in __tests__/FlameGallery.test.tsx"
+Task: "T037 [P] [US5] Add out-state precedence tests in __tests__/BonfireScreen.test.tsx"
+```
+
+## Parallel Example: User Story 2
+
+```bash
+Task: "T042 [P] [US2] Add motion parity tests in __tests__/flames.catalog.test.ts"
+Task: "T043 [P] [US2] Add motion descriptor tests in __tests__/flameModel.test.ts"
+Task: "T044 [P] [US2] Add strength-response tests in __tests__/flameModel.test.ts"
+```
 
 ## Parallel Example: User Story 3
 
 ```bash
-Task: "T036 [P] [US3] Add palette-derived particle color regression tests for non-orange variants in __tests__/palettes.test.ts"
+Task: "T050 [P] [US3] Add particle parity tests in __tests__/flames.catalog.test.ts"
+Task: "T051 [P] [US3] Add aura and accent parity tests in __tests__/flames.catalog.test.ts"
+Task: "T052 [P] [US3] Add particle descriptor tests in __tests__/flameModel.test.ts"
+Task: "T053 [P] [US3] Add aura/accent descriptor tests in __tests__/flameModel.test.ts"
 ```
 
-T034 and T035 are intentionally not marked [P] because they touch the same files as US2 test tasks.
+---
 
 ## Implementation Strategy
 
-### MVP First (US1 Only)
+### MVP First
 
-1. Complete Phase 1: Setup.
-2. Complete Phase 2: Foundational profile types and fallback.
-3. Complete Phase 3: US1 silhouette profiles and generic renderer shape support.
-4. Stop and validate: all 20 flames have non-color shape identity, and existing tests still pass.
+1. Complete Phase 1 and Phase 2.
+2. Complete Phase 3 (US4) so the product catalog carries all BonfireDesign profile data.
+3. Complete Phase 4 (US1) so users can see distinct BonfireDesign silhouettes.
+4. Stop and validate static catalog parity plus silhouette rendering before adding richer motion/particles.
 
 ### Incremental Delivery
 
-1. US1: catalog carries profile data and Flame renders distinct silhouettes.
-2. US4: invariants locked down so gameplay/storage/gallery/fire math cannot regress.
-3. US2: add profile motion and strength response.
-4. US3: add particle variants and aura accents.
-5. Polish: run lint/tests/manual validation/performance pass.
+1. US4: BonfireDesign profile data and traceability.
+2. US1: Visible shape/silhouette identity.
+3. US5: Regression guard for unlock/storage/gallery/fire math.
+4. US2: BonfireDesign motion identity.
+5. US3: BonfireDesign particles, aura, and accents.
+6. Polish: comments, lint, tests, manual parity, silent-clip identity validation, performance validation.
 
 ### Parallel Team Strategy
 
-1. One developer completes foundational types and fallback.
-2. One developer writes catalog/profile tests while another prepares pure helper tests.
-3. After US1/US4, split US2 motion and US3 particles/aura across two developers.
-4. Rejoin for performance validation because Flame.tsx, Embers.tsx, and flameModel.ts share render-path risk.
-
-## Notes
-
-- [P] tasks touch different files or can proceed without dependencies on incomplete tasks.
-- [US1], [US2], [US3], [US4] labels map directly to spec user stories.
-- Preserve no-new-packages constraint.
-- Preserve `palette` + `dim` locked embered behavior.
-- Avoid per-flame hardcoded render branches; profile flags select shared effects.
-- Keep animation UI-thread driven; avoid per-frame React state or JS allocation loops.
+1. Team completes Setup and Foundational together.
+2. One developer implements US4 catalog data while another prepares US1 renderer tests.
+3. After profile rows exist, renderer work can split between US1 shape, US2 motion, and US3 particles/aura.
+4. US5 regression tests should run throughout wiring changes to catch behavior drift.

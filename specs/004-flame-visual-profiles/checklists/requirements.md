@@ -1,7 +1,7 @@
 # Specification Quality Checklist: Flame Visual Profiles
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-06-12
+**Created**: 2026-06-13
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,4 +31,4 @@
 
 ## Notes
 
-- Validation pass 1 completed. No clarification markers or remaining checklist failures.
+- Validation pass 1 completed after BonfireDesign source-of-truth update. No clarification markers or remaining checklist failures.

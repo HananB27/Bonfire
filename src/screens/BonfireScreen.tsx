@@ -52,7 +52,7 @@ function BonfireScreen() {
   // Derive every flame's unlock state + what the active flame should render
   // (full palette when unlocked, dim "embered" palette when locked). Memoized
   // off the render path so switching flames never drops frames (SC-010).
-  const { states, effectivePalette, dim, newlyUnlocked } = useFlames(
+  const { states, activeStyle, effectivePalette, dim, newlyUnlocked } = useFlames(
     entries,
     today,
     fire,
@@ -95,11 +95,14 @@ function BonfireScreen() {
           Out-state precedence (US2): `Flame` hides itself whenever the fire is
           not lit, so a locked/embered flame is NEVER drawn while the fire is out
           — the Hearth's smoke wins. The embered palette + `dim` only take effect
-          when the fire is lit but the equipped flame is still locked. */}
+          when the fire is lit but the equipped flame is still locked.
+          `activeStyle` (004) carries the BonfireDesign visualProfile into the
+          flame (shape/motion/aura/accents) and embers (particle mix); palette +
+          dim still control color/energy, so embered behavior is unchanged. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Flame fire={fire} palette={effectivePalette} width={width} height={height} lift={progress} dim={dim} />
+        <Flame fire={fire} activeStyle={activeStyle} palette={effectivePalette} width={width} height={height} lift={progress} dim={dim} />
         <View style={StyleSheet.absoluteFill}>
-          <Embers width={width} height={height} intensity={visual.intensity} palette={effectivePalette} />
+          <Embers width={width} height={height} intensity={visual.intensity} palette={effectivePalette} activeStyle={activeStyle} />
         </View>
         <Hearth fire={fire} glow={visual.glow} palette={effectivePalette} />
         <FireCaption fire={fire} lift={progress} />

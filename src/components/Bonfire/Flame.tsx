@@ -1,24 +1,32 @@
 /**
  * Flame.tsx — the hero: a GPU-rendered bonfire flame (React Native Skia).
  *
- * This reproduces the canonical design (`BonfireDesign/styles.css` `.flame.*`
- * + `.halo` + `.ground-glow` + `fire.jsx`). The CSS look depends on three things
- * plain RN views can't do — blur, gradient fills, and `mix-blend-mode: screen`
- * (additive glow) — so the whole flame is drawn on a single Skia <Canvas>:
+ * Since spec 004 this is a GENERIC, profile-driven renderer: it reads the
+ * active flame's BonfireDesign `visualProfile` (shape variant, per-tongue
+ * transforms, edge treatment, motion family/speed, aura kind, accents, palette
+ * intent, footprint, core scale) and draws Skia equivalents of the
+ * BonfireDesign CSS rig (`BonfireDesign/flame-renderer.jsx` / `flame-catalog.css`):
  *
  *   ground-glow  → blurred radial oval, low on the ground
- *   halo         → larger, taller blurred radial oval behind the flame
- *   5 flame tongues (base/mid/inner/core/tongue) → teardrop Skia paths, each
- *     with its own vertical LinearGradient + Blur, all composited with
- *     BlendMode.Screen and a brightness multiplier (`--bright`).
+ *   aura/halo    → blurred radial oval whose geometry follows the profile's
+ *                  aura kind (oval/tall/wide/circular/ring + dim/crisp)
+ *   accents      → shockPulse / solarCircle / orbitRing / voidRing / auroraBand,
+ *                  selected purely by profile data (never by flame id)
+ *   N tongues    → each profile tongue is the BonfireDesign 4-layer stack
+ *                  (base/mid/inner/core teardrops with their own vertical
+ *                  LinearGradient + Blur), positioned by its dx/fy/rot/sx/sy
+ *                  transform and composited with BlendMode.Screen
  *
- * Animation runs on the UI thread via a Skia clock (so it holds the display
- * refresh rate, ≥120 FPS, even while JS is busy): each tongue flickers with a
- * slightly different speed/phase (mirroring the `flick-a/b/c/tongue` keyframes),
- * and a "grow pop" plays when the fire's strength increases.
+ * Animation runs on the UI thread via a shared clock (so it holds the display
+ * refresh rate, ≥120 FPS, even while JS is busy). Each tongue flickers with the
+ * profile's motion family (smooth/harsh) and speed (a period multiplier, as in
+ * BonfireDesign), offset by its `lag`; float/warp/ribbon/sway/pulse/hueDrift are
+ * additional clock-derived modifiers. All geometry, gradients, and descriptors
+ * are memoized on profile/palette/dimension changes — no per-frame JS work.
  *
- * The flame is hidden when the fire is `out` or `unlit` (the design shows smoke
- * / a dim hearth in those states — see Hearth/Embers).
+ * The flame (including all profile accents) is hidden when the fire is `out` or
+ * `unlit` (the design shows smoke / a dim hearth in those states — see
+ * Hearth/Embers), preserving out-state precedence.
  */
 
 import React, { useEffect, useMemo } from 'react';
@@ -33,6 +41,9 @@ import {
   Paint,
   ColorMatrix,
   Circle,
+  Oval,
+  Rect,
+  rect,
   vec,
 } from '@shopify/react-native-skia';
 import {
@@ -45,11 +56,26 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
+import type { FlameStyle } from '../../domain/flames';
 import { darken, withAlpha, type Palette } from '../../theme/palettes';
-import { flameVisual } from './flameModel';
+import {
+  flameVisual,
+  resolveAccents,
+  resolveAuraDescriptor,
+  resolveMotionDescriptor,
+  resolveShapeDescriptor,
+  resolveStrengthVisuals,
+  resolveVisualProfile,
+  type MotionDescriptor,
+  type ShapeDescriptor,
+  type TongueDescriptor,
+} from './flameModel';
 
 interface FlameProps {
   fire: FireState;
+  // The active catalog flame; its BonfireDesign visualProfile drives the shape,
+  // motion, aura, and accents. Missing/invalid profiles fall back to Amber-like.
+  activeStyle?: FlameStyle;
   palette: Palette;
   width: number;
   height: number;
@@ -65,18 +91,56 @@ interface FlameProps {
 // CSS `.fire { bottom: 170px }` so the flame sits just above the logs.
 const BASE_FROM_BOTTOM = 170;
 
+// The BonfireDesign 4-layer tongue rig: [name, width×fh, height×fh, blur].
+// Soft tongues (Wisp fragments) draw only mid+inner — no deep base, no hot core.
+const LAYER_RIG = [
+  { name: 'base', w: 0.66, h: 1.0, blur: 13 },
+  { name: 'mid', w: 0.46, h: 0.86, blur: 8 },
+  { name: 'inner', w: 0.3, h: 0.66, blur: 5 },
+  { name: 'core', w: 0.17, h: 0.46, blur: 3 },
+] as const;
+type LayerName = (typeof LAYER_RIG)[number]['name'];
+
 /**
- * Build one flame "tongue" as a teardrop path: a rounded, slightly bulging body
- * that tapers to a soft point at the top. Drawn from a baseline `baseY` upward.
+ * Build one flame layer outline as a Skia path. The `edge` treatment maps the
+ * BonfireDesign `edge-*` clip-paths to path families:
+ *  - round:   smooth teardrop (cubic curves, soft shoulders)
+ *  - sharp:   teardrop with pinched control points → pointed tip
+ *  - jagged:  zigzag polygon (Strontium's broken edges)
+ *  - crystal: angular faceted polygon (Frostfire)
  */
-function tonguePath(cx: number, baseY: number, w: number, h: number) {
+function tonguePath(cx: number, baseY: number, w: number, h: number, edge: string) {
   const hw = w / 2;
   const top = baseY - h;
-  const d =
-    `M ${cx} ${top} ` +
-    `C ${cx + hw * 0.9} ${top + h * 0.45} ${cx + hw} ${top + h * 0.82} ${cx + hw * 0.5} ${baseY} ` +
-    `Q ${cx} ${baseY + h * 0.06} ${cx - hw * 0.5} ${baseY} ` +
-    `C ${cx - hw} ${top + h * 0.82} ${cx - hw * 0.9} ${top + h * 0.45} ${cx} ${top} Z`;
+  let d: string;
+  if (edge === 'jagged') {
+    d =
+      `M ${cx} ${top} ` +
+      `L ${cx + hw * 0.55} ${top + h * 0.28} L ${cx + hw * 0.3} ${top + h * 0.42} ` +
+      `L ${cx + hw * 0.95} ${top + h * 0.68} L ${cx + hw * 0.45} ${baseY} ` +
+      `L ${cx - hw * 0.45} ${baseY} L ${cx - hw * 0.95} ${top + h * 0.68} ` +
+      `L ${cx - hw * 0.3} ${top + h * 0.42} L ${cx - hw * 0.55} ${top + h * 0.28} Z`;
+  } else if (edge === 'crystal') {
+    d =
+      `M ${cx} ${top} ` +
+      `L ${cx + hw * 0.5} ${top + h * 0.32} L ${cx + hw * 0.32} ${top + h * 0.5} ` +
+      `L ${cx + hw} ${top + h * 0.78} L ${cx + hw * 0.42} ${baseY} ` +
+      `L ${cx - hw * 0.42} ${baseY} L ${cx - hw} ${top + h * 0.78} ` +
+      `L ${cx - hw * 0.32} ${top + h * 0.5} L ${cx - hw * 0.5} ${top + h * 0.32} Z`;
+  } else if (edge === 'sharp') {
+    // Pinched upper controls taper the tip to a point (Crimson/Sodium/Voidfire).
+    d =
+      `M ${cx} ${top} ` +
+      `C ${cx + hw * 0.55} ${top + h * 0.5} ${cx + hw} ${top + h * 0.84} ${cx + hw * 0.5} ${baseY} ` +
+      `Q ${cx} ${baseY + h * 0.06} ${cx - hw * 0.5} ${baseY} ` +
+      `C ${cx - hw} ${top + h * 0.84} ${cx - hw * 0.55} ${top + h * 0.5} ${cx} ${top} Z`;
+  } else {
+    d =
+      `M ${cx} ${top} ` +
+      `C ${cx + hw * 0.9} ${top + h * 0.45} ${cx + hw} ${top + h * 0.82} ${cx + hw * 0.5} ${baseY} ` +
+      `Q ${cx} ${baseY + h * 0.06} ${cx - hw * 0.5} ${baseY} ` +
+      `C ${cx - hw} ${top + h * 0.82} ${cx - hw * 0.9} ${top + h * 0.45} ${cx} ${top} Z`;
+  }
   return Skia.Path.MakeFromSVGString(d) ?? Skia.Path.Make();
 }
 
@@ -85,25 +149,73 @@ function brightnessMatrix(b: number): number[] {
   return [b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
 }
 
-// A flame-tongue flicker transform, computed on the UI thread from the clock.
-// Pure worklet (no hooks) so it can be reused by each tongue's derived value.
-function flickerTransform(
+// A 4×5 hue-rotation color matrix (the standard SVG feColorMatrix formula).
+// Used for static per-tongue hue offsets (Aurora/Nebula layers) and the
+// clock-driven whole-flame hue drift. Marked as a worklet so the drift can be
+// computed on the UI thread.
+function hueRotateMatrix(deg: number): number[] {
+  'worklet';
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  return [
+    0.213 + c * 0.787 - s * 0.213, 0.715 - c * 0.715 - s * 0.715, 0.072 - c * 0.072 + s * 0.928, 0, 0,
+    0.213 - c * 0.213 + s * 0.143, 0.715 + c * 0.285 + s * 0.14, 0.072 - c * 0.072 - s * 0.283, 0, 0,
+    0.213 - c * 0.213 - s * 0.787, 0.715 - c * 0.715 + s * 0.715, 0.072 + c * 0.928 + s * 0.072, 0, 0,
+    0, 0, 0, 1, 0,
+  ];
+}
+
+/**
+ * Per-tongue flicker transform, computed on the UI thread from the shared
+ * clock. Generic over the profile's motion descriptor:
+ *  - `family` smooth = the original gentle sine wobble; harsh = extra
+ *    higher-frequency jitter (Strontium/Frostfire/Inferno violence)
+ *  - `speed` multiplies the PERIOD (BonfireDesign semantics: smaller = faster)
+ *  - `lag` phase-shifts this tongue behind the others
+ *  - `warp` adds the Toxic outline wobble; `ribbon` the Aurora wave;
+ *    `float` the Wisp fragment bob
+ */
+function tongueFlicker(
   ms: number,
-  speed: number,
-  swayPx: number,
-  stretch: number,
+  motion: MotionDescriptor,
+  lag: number,
+  float: boolean,
+  motionScale: number,
   cx: number,
   baseY: number,
 ) {
   'worklet';
-  const phase = (ms / 1000) * speed;
-  const sx = 1 + Math.sin(phase * 1.3) * stretch * 0.4;
-  const sy = 1 - Math.sin(phase) * stretch;
-  const tx = Math.sin(phase * 0.9) * swayPx;
+  const t = ms / 1000 / motion.speed - lag;
+  const stretch = (motion.family === 'harsh' ? 0.12 : 0.07) * motionScale;
+  let sx = 1 + Math.sin(t * 5.5) * stretch * 0.4;
+  let sy = 1 - Math.sin(t * 4.2) * stretch;
+  let tx = Math.sin(t * 3.8) * 3 * motionScale;
+  let ty = 0;
+  if (motion.family === 'harsh') {
+    // Jittery overtones: the "broken" flicker of the harsh keyframe family.
+    sy -= Math.sin(t * 13.1) * stretch * 0.5;
+    sx += Math.sin(t * 17.3) * stretch * 0.3;
+    tx += Math.sin(t * 11.7) * 1.5;
+  }
+  if (motion.warp) {
+    // Slow asymmetric squash — the Toxic border-radius warp equivalent.
+    sx += Math.sin(t * 1.6) * 0.07;
+    sy += Math.cos(t * 1.1) * 0.05;
+  }
+  if (motion.ribbon) {
+    // Curtain wave: tongues drift sideways on slow offset phases.
+    tx += Math.sin(ms / 1400 / motion.speed - lag * 2) * 7;
+  }
+  if (float) {
+    // Low-gravity fragment bob (Wisp): slow vertical float, independent phase.
+    ty = Math.sin(ms / 1300 - lag * 3) * 6;
+  }
   return [
     { translateX: cx },
     { translateY: baseY },
     { translateX: tx },
+    { translateY: ty },
     { scaleX: sx },
     { scaleY: sy },
     { translateX: -cx },
@@ -111,11 +223,226 @@ function flickerTransform(
   ];
 }
 
-function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
+// ---------------------------------------------------------------------------
+// One profile tongue: the static dx/fy/rot/sx/sy placement plus the animated
+// flicker, drawing its layer stack (full or soft). A separate component so each
+// tongue owns its hooks — profiles with different tongue counts mount/unmount
+// tongue components rather than changing hook counts.
+// ---------------------------------------------------------------------------
+interface TongueProps {
+  tongue: TongueDescriptor;
+  motion: MotionDescriptor;
+  motionScale: number;
+  paths: Record<LayerName, ReturnType<typeof tonguePath>>;
+  stops: Record<'base' | 'mid', string[]>;
+  palette: Palette;
+  invertCore: boolean;
+  coreScale: number;
+  fh: number;
+  cx: number;
+  baseY: number;
+  clock: SharedValue<number>;
+}
+
+function Tongue({
+  tongue, motion, motionScale, paths, stops, palette, invertCore, coreScale,
+  fh, cx, baseY, clock,
+}: TongueProps) {
+  const flickT = useDerivedValue(() =>
+    tongueFlicker(clock.value, motion, tongue.lag, tongue.float, motionScale, cx, baseY),
+  );
+
+  // Core brightness pulse (Solfire `pulse: 'core'`): only the core layer beats.
+  const corePulse = useDerivedValue(() => {
+    'worklet';
+    if (motion.pulse !== 'core') return 1;
+    return 0.72 + 0.28 * Math.sin(clock.value / (1600 * motion.speed) * Math.PI * 2);
+  });
+
+  // Static placement: offset (dx/fy fractions of flame height), rotate, scale —
+  // all around the tongue's base point, exactly like the BonfireDesign wrapper.
+  const placement = useMemo(
+    () => [
+      { translateX: cx },
+      { translateY: baseY },
+      { translateX: tongue.dx * fh },
+      { translateY: -tongue.fy * fh },
+      { rotate: (tongue.rot * Math.PI) / 180 },
+      { scaleX: tongue.sx },
+      { scaleY: tongue.sy },
+      { translateX: -cx },
+      { translateY: -baseY },
+    ],
+    [tongue, cx, baseY, fh],
+  );
+
+  // Soft tongues (Wisp fragments) draw only the gentle mid+inner layers.
+  const layers = tongue.soft ? LAYER_RIG.slice(1, 3) : LAYER_RIG;
+  // Ghost copies (Spectral/Nebula) render the whole stack at reduced opacity.
+  const opacity = tongue.ghost ?? 1;
+
+  const body = (
+    <Group opacity={opacity} transform={placement}>
+      <Group transform={flickT}>
+        {layers.map(layer => {
+          const sc = layer.name === 'core' ? coreScale : 1;
+          const lh = fh * layer.h * sc;
+          // Gradient stop sets translated from the BonfireDesign layer grads.
+          const colors =
+            layer.name === 'base' ? stops.base
+            : layer.name === 'mid' ? stops.mid
+            : layer.name === 'inner' ? [palette.ember, palette.amber, palette.gold]
+            : invertCore
+              // Voidfire: the core flips to a near-black void wrapped in light.
+              ? [darken(palette.red, 0.35), darken(palette.red, 0.12)]
+              : [palette.amber, palette.gold, palette.core];
+          const positions =
+            layer.name === 'base' ? [0, 0.22, 0.7, 1]
+            : layer.name === 'mid' ? [0, 0.35, 0.8, 1]
+            : colors.length === 2 ? [0, 1]
+            : [0, 0.45, 0.88];
+          return (
+            <Group key={layer.name} layer={<Paint><Blur blur={layer.blur} /></Paint>}>
+              <Path
+                path={paths[layer.name]}
+                // The dark void core must NOT screen-blend (screen would erase
+                // dark colors); everything else stays additive.
+                blendMode={layer.name === 'core' && invertCore ? 'srcOver' : undefined}
+                opacity={layer.name === 'core' ? corePulse : undefined}>
+                <LinearGradient
+                  start={vec(cx, baseY)}
+                  end={vec(cx, baseY - lh)}
+                  colors={colors}
+                  positions={positions}
+                />
+              </Path>
+            </Group>
+          );
+        })}
+      </Group>
+    </Group>
+  );
+
+  // Static per-tongue hue offset (Aurora ±35°, Nebula ±130/−95°): wrap the
+  // tongue in a hue-rotate color filter only when the profile asks for one.
+  if (tongue.hue !== 0) {
+    return (
+      <Group layer={<Paint><ColorMatrix matrix={hueRotateMatrix(tongue.hue)} /></Paint>}>
+        {body}
+      </Group>
+    );
+  }
+  return body;
+}
+
+// ---------------------------------------------------------------------------
+// Accents — each is a tiny self-contained Skia element selected by profile
+// data. All live INSIDE the flame's fading group, so out-state hides them.
+// ---------------------------------------------------------------------------
+
+/** Expanding shock rings (Inferno). One ring loops outward from the base. */
+function ShockPulse({ clock, cx, baseY, fh, color }: {
+  clock: SharedValue<number>; cx: number; baseY: number; fh: number; color: string;
+}) {
+  const r = useDerivedValue(() => {
+    'worklet';
+    const p = (clock.value % 2400) / 2400;
+    return fh * (0.35 + p * 0.85);
+  });
+  const opacity = useDerivedValue(() => {
+    'worklet';
+    const p = (clock.value % 2400) / 2400;
+    return (1 - p) * 0.35;
+  });
+  return (
+    <Circle c={vec(cx, baseY - fh * 0.3)} r={r} opacity={opacity} color={color}
+      style="stroke" strokeWidth={2} />
+  );
+}
+
+/** Crisp circular outline around the oversized core (Solfire). */
+function SolarCircle({ cx, baseY, fh, color }: {
+  cx: number; baseY: number; fh: number; color: string;
+}) {
+  return (
+    <Circle c={vec(cx, baseY - fh * 0.34)} r={fh * 0.52} color={color}
+      style="stroke" strokeWidth={1.5} opacity={0.55} />
+  );
+}
+
+/** One orbiting ring with two satellites (orbitRing / each voidRing). */
+function OrbitRing({ clock, cx, baseY, fh, color, periodMs, big, reverse }: {
+  clock: SharedValue<number>; cx: number; baseY: number; fh: number;
+  color: string; periodMs: number; big?: boolean; reverse?: boolean;
+}) {
+  const scale = big ? 1.35 : 1;
+  const rx = fh * 0.72 * scale;
+  const ry = fh * 0.26 * scale;
+  const cyRing = baseY - fh * 0.42;
+  const dir = reverse ? -1 : 1;
+  const dotA = useDerivedValue(() => {
+    'worklet';
+    const a = (clock.value / periodMs) * Math.PI * 2 * dir;
+    return vec(cx + Math.cos(a) * rx, cyRing + Math.sin(a) * ry);
+  });
+  const dotB = useDerivedValue(() => {
+    'worklet';
+    const a = (clock.value / periodMs) * Math.PI * 2 * dir + Math.PI;
+    return vec(cx + Math.cos(a) * rx, cyRing + Math.sin(a) * ry);
+  });
+  return (
+    <Group>
+      <Oval rect={rect(cx - rx, cyRing - ry, rx * 2, ry * 2)} color={color}
+        style="stroke" strokeWidth={1} opacity={0.4} />
+      <Circle c={dotA} r={3} color={color} opacity={0.9} />
+      <Circle c={dotB} r={2.2} color={color} opacity={0.6} />
+    </Group>
+  );
+}
+
+/** Soft drifting light band behind the flame (Aurora/Nebula). */
+function AuroraBand({ clock, cx, baseY, fh, colors }: {
+  clock: SharedValue<number>; cx: number; baseY: number; fh: number; colors: string[];
+}) {
+  const bw = fh * 2.0;
+  const bh = fh * 0.5;
+  const y = baseY - fh * 1.05;
+  const drift = useDerivedValue(() => {
+    'worklet';
+    return [{ translateX: Math.sin(clock.value / 7000) * fh * 0.18 }];
+  });
+  return (
+    <Group transform={drift} layer={<Paint><Blur blur={16} /></Paint>}>
+      <Rect rect={rect(cx - bw / 2, y - bh / 2, bw, bh)}>
+        <LinearGradient
+          start={vec(cx - bw / 2, y)}
+          end={vec(cx + bw / 2, y)}
+          colors={colors}
+          positions={[0, 0.5, 1]}
+        />
+      </Rect>
+    </Group>
+  );
+}
+
+function Flame({ fire, activeStyle, palette, width, height, lift, dim = 1 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
+
+  // ---- Resolve the BonfireDesign profile into plain render descriptors ----
+  // All pure + memoized: a flame switch recomputes them once, never per frame.
+  const profile = useMemo(() => resolveVisualProfile(activeStyle), [activeStyle]);
+  const shape: ShapeDescriptor = useMemo(() => resolveShapeDescriptor(profile), [profile]);
+  const motion = useMemo(() => resolveMotionDescriptor(profile), [profile]);
+  const aura = useMemo(() => resolveAuraDescriptor(profile), [profile]);
+  const accents = useMemo(() => resolveAccents(profile), [profile]);
+  const strength = useMemo(
+    () => resolveStrengthVisuals(profile, visual.intensity),
+    [profile, visual.intensity],
+  );
+
   // Embered flames burn lower: scale the halo/ground glow and overall brightness
   // by `dim` (1 = unchanged). Color still comes entirely from the `palette` prop.
-  const glow = visual.glow * dim;
+  const glow = visual.glow * dim * aura.opacityScale * Math.min(strength.aura, 1.3);
   const bright = visual.bright * dim;
   const lit = fire.state === 'lit';
   // Honor the OS "reduce motion" setting: freeze the flicker loop when set.
@@ -125,17 +452,18 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
   const baseY = height - BASE_FROM_BOTTOM;
   const fh = visual.height;
 
-  // ---- Flame tongue geometry (ratios straight from `styles.css .flame.*`) ----
+  // ---- Layer geometry: one path per rig layer, with the profile's edge ----
+  // Tongues reuse these canonical paths and shape them via their transforms,
+  // exactly like the BonfireDesign rig (one layer stack, N tongue wrappers).
   const paths = useMemo(() => {
+    const make = (w: number, h: number) => tonguePath(cx, baseY, fh * w, fh * h, shape.edge);
     return {
-      base: tonguePath(cx, baseY, fh * 0.66, fh * 1.0),
-      mid: tonguePath(cx, baseY, fh * 0.46, fh * 0.86),
-      inner: tonguePath(cx, baseY, fh * 0.3, fh * 0.66),
-      core: tonguePath(cx, baseY, fh * 0.17, fh * 0.46),
-      // the slim flickering tongue floats up off the base (CSS bottom: 0.4*fh)
-      tongue: tonguePath(cx, baseY - fh * 0.4, fh * 0.14, fh * 0.5),
+      base: make(LAYER_RIG[0].w, LAYER_RIG[0].h),
+      mid: make(LAYER_RIG[1].w, LAYER_RIG[1].h),
+      inner: make(LAYER_RIG[2].w, LAYER_RIG[2].h),
+      core: make(LAYER_RIG[3].w * shape.coreScale, LAYER_RIG[3].h * shape.coreScale),
     };
-  }, [cx, baseY, fh]);
+  }, [cx, baseY, fh, shape.edge, shape.coreScale]);
 
   // ---- Grow pop + ignite feedback (Reanimated shared values) ----
   // `grow` scales the whole flame: 1 at rest, a quick overshoot when strength
@@ -168,9 +496,9 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
     prevLit.value = lit;
   }, [lit, fire.strength, grow, opacity, prevStrength, prevLit]);
 
-  // ---- Per-frame flicker on the UI thread (Skia clock) ----
-  // A free-running clock in ms; each tongue derives a gentle scale/translate
-  // wobble from it at a different speed/phase, mimicking the CSS flick keyframes.
+  // ---- Per-frame flicker on the UI thread (shared clock) ----
+  // A free-running clock in ms; every tongue/accent derives its motion from it.
+  // Reduced motion keeps the clock at 0 → every derived transform is static.
   const clock = useSharedValue(0);
   useEffect(() => {
     if (reducedMotion) return; // keep the flame still (a11y)
@@ -184,28 +512,46 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
     return () => cancelAnimationFrame(raf);
   }, [clock, reducedMotion]);
 
-  // Each tongue flickers with a slightly different speed/phase (flick-a/b/c/tongue).
-  const baseT = useDerivedValue(() => flickerTransform(clock.value, 4.2, 3, 0.05, cx, baseY));
-  const midT = useDerivedValue(() => flickerTransform(clock.value, 5.5, 4, 0.08, cx, baseY));
-  const innerT = useDerivedValue(() => flickerTransform(clock.value, 7.0, 2, 0.12, cx, baseY));
-  const coreT = useDerivedValue(() => flickerTransform(clock.value, 7.8, 2, 0.12, cx, baseY));
-  const tongueT = useDerivedValue(() => flickerTransform(clock.value, 9.0, 6, 0.2, cx, baseY));
-
-  // Whole-flame transform: grow pop + calendar lift (translate up & scale down).
+  // Whole-flame transform: grow pop + calendar lift + profile footprint +
+  // profile group sway (Magenta). Footprint is the BonfireDesign 1.2/1.3×
+  // oversize trait; sway is a slow clock-driven sideways rock.
   const flameTransform = useDerivedValue(() => {
     'worklet';
     const l = lift ? lift.value : 0;
+    const swayX =
+      motion.sway > 0 ? Math.sin(clock.value / (2400 * motion.speed) * Math.PI * 2) * motion.sway : 0;
     return [
       { translateX: cx },
       { translateY: baseY },
+      { translateX: swayX },
       { translateY: -0.18 * l * height },
-      { scale: grow.value * (1 - 0.4 * l) },
+      { scale: grow.value * (1 - 0.4 * l) * shape.footprint },
       { translateX: -cx },
       { translateY: -baseY },
     ];
   });
 
-  const flameOpacity = useDerivedValue(() => opacity.value, [opacity]);
+  // Whole-flame opacity: ignite/out fade × translucent-body intent (Ghostlight).
+  const flameOpacity = useDerivedValue(
+    () => opacity.value * shape.bodyOpacity,
+    [opacity, shape.bodyOpacity],
+  );
+
+  // Coal pulse (Ember): the whole tongue stack breathes in brightness.
+  const tonguesOpacity = useDerivedValue(() => {
+    'worklet';
+    if (motion.pulse !== 'coal') return 1;
+    return 0.8 + 0.2 * Math.sin(clock.value / 2600 * Math.PI * 2);
+  });
+
+  // Slow whole-flame hue drift (Aurora 14s, Nebula 22s): a clock-derived
+  // hue-rotation color matrix. Identity when the profile doesn't drift.
+  const hueDriftMatrix = useDerivedValue(() => {
+    'worklet';
+    if (motion.hueDriftMs <= 0) return hueRotateMatrix(0);
+    const p = Math.sin((clock.value / motion.hueDriftMs) * Math.PI * 2);
+    return hueRotateMatrix(p * 20);
+  });
 
   // Brightness layer applied to the whole composited flame (dim-aware).
   const brightPaint = useMemo(() => brightnessMatrix(bright), [bright]);
@@ -219,21 +565,26 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
     () => ({
       // warm pool of light on the ground (was fixed orange rgba stops)
       ground: [withAlpha(palette.amber, 0.55), withAlpha(palette.ember, 0.22), withAlpha(palette.ember, 0)],
-      // big soft glow behind the flame
-      halo: [withAlpha(palette.amber, 0.4), withAlpha(palette.ember, 0.16), withAlpha(palette.ember, 0)],
+      // big soft glow behind the flame — solid disc, or hollow ring (Voidfire)
+      halo: aura.ring
+        ? [withAlpha(palette.ember, 0), withAlpha(palette.amber, 0.38), withAlpha(palette.ember, 0)]
+        : [withAlpha(palette.amber, 0.4), withAlpha(palette.ember, 0.16), withAlpha(palette.ember, 0)],
+      haloPositions: aura.ring ? [0.45, 0.72, 1] : [0, 0.4, 0.7],
       // base tongue: deep (darkened) red → red → ember → translucent amber tip
       base: [darken(palette.red, 0.55), palette.red, palette.ember, withAlpha(palette.amber, 0.2)],
       // mid tongue: darkened red → ember → amber → translucent gold tip
       mid: [darken(palette.red, 0.8), palette.ember, palette.amber, withAlpha(palette.gold, 0.25)],
-      // slim flickering tongue: translucent amber → gold → core fading out
-      tongue: [withAlpha(palette.amber, 0.7), palette.gold, withAlpha(palette.core, 0)],
+      // accent colors (rings, pulses, bands) — all palette-derived
+      accent: withAlpha(palette.gold, 0.8),
+      accentSoft: withAlpha(palette.gold, 0.5),
+      band: [withAlpha(palette.gold, 0), withAlpha(palette.gold, 0.22), withAlpha(palette.gold, 0)],
     }),
-    [palette],
+    [palette, aura.ring],
   );
 
-  // Halo / ground-glow sizing (mirrors the CSS `calc(... + var(--fh) * k)`).
-  const haloW = 160 + fh * 2.2;
-  const haloH = 200 + fh * 2.6;
+  // Aura sizing: the baseline oval halo scaled by the profile's aura geometry.
+  const haloW = (160 + fh * 2.2) * aura.widthScale;
+  const haloH = (200 + fh * 2.6) * aura.heightScale;
   const groundW = 180 + fh * 1.7;
   const groundH = 80 + fh * 0.5;
 
@@ -264,7 +615,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
           </Circle>
         </Group>
 
-        {/* ---- halo (big soft glow behind the flame) ---- */}
+        {/* ---- aura (profile-shaped glow behind the flame) ---- */}
         <Group
           opacity={glow}
           transform={[
@@ -275,7 +626,7 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
           ]}
           layer={
             <Paint>
-              <Blur blur={14} />
+              <Blur blur={aura.blur} />
             </Paint>
           }>
           <Circle c={vec(0, 0)} r={100}>
@@ -283,80 +634,75 @@ function Flame({ fire, palette, width, height, lift, dim = 1 }: FlameProps) {
               c={vec(0, 0)}
               r={100}
               colors={stops.halo}
-              positions={[0, 0.4, 0.7]}
+              positions={stops.haloPositions}
             />
           </Circle>
         </Group>
 
-        {/* ---- the flame: 5 tongues, additive (screen) + brightness ---- */}
+        {/* ---- behind-the-flame accents (profile data only, never flame id) ---- */}
+        {accents.includes('auroraBand') && (
+          <AuroraBand clock={clock} cx={cx} baseY={baseY} fh={fh} colors={stops.band} />
+        )}
+        {accents.includes('shockPulse') && (
+          <ShockPulse clock={clock} cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
+        )}
+        {accents.includes('solarCircle') && (
+          <SolarCircle cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
+        )}
+
+        {/* ---- the flame: profile tongues, additive (screen) + brightness +
+                optional hue drift. Each tongue is a BonfireDesign 4-layer stack;
+                `afterimage` ghosts are the profile's own ghost tongues. ---- */}
         <Group
           layer={
             <Paint>
               <ColorMatrix matrix={brightPaint} />
             </Paint>
           }>
-          <Group blendMode="screen">
-            {/* base — widest, deepest red→ember */}
-            <Group transform={baseT} layer={<Paint><Blur blur={13} /></Paint>}>
-              <Path path={paths.base}>
-                <LinearGradient
-                  start={vec(cx, baseY)}
-                  end={vec(cx, baseY - fh)}
-                  colors={stops.base}
-                  positions={[0, 0.22, 0.7, 1]}
+          <Group
+            opacity={tonguesOpacity}
+            layer={
+              motion.hueDriftMs > 0 ? (
+                <Paint>
+                  <ColorMatrix matrix={hueDriftMatrix} />
+                </Paint>
+              ) : undefined
+            }>
+            <Group blendMode="screen">
+              {shape.tongues.map((tongue, i) => (
+                <Tongue
+                  key={i}
+                  tongue={tongue}
+                  motion={motion}
+                  motionScale={Math.min(strength.motion, 1.3)}
+                  paths={paths}
+                  stops={stops}
+                  palette={palette}
+                  invertCore={shape.invertCore}
+                  coreScale={shape.coreScale}
+                  fh={fh}
+                  cx={cx}
+                  baseY={baseY}
+                  clock={clock}
                 />
-              </Path>
-            </Group>
-
-            {/* mid — ember→amber */}
-            <Group transform={midT} layer={<Paint><Blur blur={8} /></Paint>}>
-              <Path path={paths.mid}>
-                <LinearGradient
-                  start={vec(cx, baseY)}
-                  end={vec(cx, baseY - fh * 0.86)}
-                  colors={stops.mid}
-                  positions={[0, 0.35, 0.8, 1]}
-                />
-              </Path>
-            </Group>
-
-            {/* tongue — slim flickering tip, drawn under inner/core */}
-            <Group transform={tongueT} layer={<Paint><Blur blur={6} /></Paint>}>
-              <Path path={paths.tongue}>
-                <LinearGradient
-                  start={vec(cx, baseY - fh * 0.4)}
-                  end={vec(cx, baseY - fh * 0.9)}
-                  colors={stops.tongue}
-                  positions={[0, 0.6, 1]}
-                />
-              </Path>
-            </Group>
-
-            {/* inner — ember→amber→gold */}
-            <Group transform={innerT} layer={<Paint><Blur blur={5} /></Paint>}>
-              <Path path={paths.inner}>
-                <LinearGradient
-                  start={vec(cx, baseY)}
-                  end={vec(cx, baseY - fh * 0.66)}
-                  colors={[palette.ember, palette.amber, palette.gold]}
-                  positions={[0, 0.45, 0.85]}
-                />
-              </Path>
-            </Group>
-
-            {/* core — hottest, amber→gold→near-white */}
-            <Group transform={coreT} layer={<Paint><Blur blur={3} /></Paint>}>
-              <Path path={paths.core}>
-                <LinearGradient
-                  start={vec(cx, baseY)}
-                  end={vec(cx, baseY - fh * 0.46)}
-                  colors={[palette.amber, palette.gold, palette.core]}
-                  positions={[0, 0.4, 0.88]}
-                />
-              </Path>
+              ))}
             </Group>
           </Group>
         </Group>
+
+        {/* ---- orbiting accents drawn over the flame ---- */}
+        {accents.includes('orbitRing') && (
+          <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+            color={stops.accent} periodMs={7500} />
+        )}
+        {accents.includes('voidRing') && (
+          <>
+            <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+              color={stops.accent} periodMs={9000} />
+            <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+              color={stops.accentSoft} periodMs={14000} big reverse />
+          </>
+        )}
       </Group>
     </Canvas>
   );
