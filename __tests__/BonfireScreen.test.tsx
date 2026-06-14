@@ -282,7 +282,7 @@ function findEmbers(tree: ReactTestRenderer.ReactTestRenderer) {
   );
 }
 
-test('the active FlameStyle is passed to Flame, alongside palette/dim/lift (004 US1)', async () => {
+test('the active FlameStyle is passed to Flame, while the calendar no longer lifts it (004 US1)', async () => {
   const tree = await renderScreen();
   const flame = findFlame(tree);
   // activeStyle reaches the flame and carries the BonfireDesign visualProfile…
@@ -293,7 +293,8 @@ test('the active FlameStyle is passed to Flame, alongside palette/dim/lift (004 
   expect(typeof flame.props.dim).toBe('number');
   expect(typeof flame.props.width).toBe('number');
   expect(typeof flame.props.height).toBe('number');
-  expect(flame.props.lift).toBeTruthy();
+  expect(flame.props.clock).toBeTruthy();
+  expect(flame.props.lift).toBeUndefined();
 });
 
 test('the active FlameStyle is passed to Embers for its particle mix (004 US3)', async () => {

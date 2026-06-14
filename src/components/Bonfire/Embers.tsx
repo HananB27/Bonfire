@@ -21,9 +21,9 @@
  * Reduced motion freezes the clock (particles hold still).
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { Canvas, Circle, Group, Oval, Path, RadialGradient, Skia, rect, vec } from '@shopify/react-native-skia';
-import { useDerivedValue, useReducedMotion, useSharedValue, type SharedValue } from 'react-native-reanimated';
+import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import type { FlameStyle, ParticleKind } from '../../domain/flames';
 import { withAlpha, type Palette } from '../../theme/palettes';
 import { resolveParticleDescriptors, resolveVisualProfile, type ParticleDescriptor } from './flameModel';
@@ -35,6 +35,8 @@ interface EmbersProps {
   palette: Palette;
   // The active catalog flame; its visualProfile.particles selects the mix.
   activeStyle?: FlameStyle;
+  // Shared scene clock from BonfireScreen; avoids a second per-frame driver.
+  clock: SharedValue<number>;
 }
 
 // A deterministic seed for one particle.
@@ -141,6 +143,120 @@ const STAR_PATH =
  *  - wisps: elongated soft ellipse (vapor trail)
  *  - stars: four-point star fleck
  */
+function particleProgress(ms: number, seed: Seed): number {
+  'worklet';
+  return ((ms / seed.period + seed.phase) % 1 + 1) % 1;
+}
+
+function particleOpacity(p: number, bright: number): number {
+  'worklet';
+  const env = p < 0.15 ? p / 0.15 : p > 0.85 ? (1 - p) / 0.15 : 1;
+  return env * bright;
+}
+
+function DotParticle({ seed, clock, width, baseY, color, bright, ash = false }: {
+  seed: Seed;
+  clock: SharedValue<number>;
+  width: number;
+  baseY: number;
+  color: string;
+  bright: number;
+  ash?: boolean;
+}) {
+  const startX = seed.x * width;
+  const point = useDerivedValue(() => {
+    'worklet';
+    const p = particleProgress(clock.value, seed);
+    return vec(startX + p * seed.drift, baseY - p * seed.rise);
+  });
+  const opacity = useDerivedValue(() => {
+    'worklet';
+    return particleOpacity(particleProgress(clock.value, seed), bright);
+  });
+  if (ash) {
+    return <Circle c={point} r={seed.size} color={withAlpha(color, 0.7)} opacity={opacity} />;
+  }
+  return (
+    <Circle c={point} r={seed.size} opacity={opacity}>
+      <RadialGradient
+        c={point}
+        r={seed.size}
+        colors={[color, color, withAlpha(color, 0)]}
+        positions={[0, 0.45, 1]}
+      />
+    </Circle>
+  );
+}
+
+function ShapeParticle({ kind, seed, clock, width, baseY, color, bright }: {
+  kind: 'bubbles' | 'shards' | 'stars';
+  seed: Seed;
+  clock: SharedValue<number>;
+  width: number;
+  baseY: number;
+  color: string;
+  bright: number;
+}) {
+  const startX = seed.x * width;
+  const transform = useDerivedValue(() => {
+    'worklet';
+    const p = particleProgress(clock.value, seed);
+    const rot = (clock.value / 1000) * seed.spin * (kind === 'shards' ? 2.2 : 0.9);
+    const scale = (seed.size / 4) * (kind === 'bubbles' ? 0.7 + p * 0.6 : 1);
+    return [
+      { translateX: startX + p * seed.drift },
+      { translateY: baseY - p * seed.rise },
+      { rotate: rot },
+      { scale },
+    ];
+  });
+  const opacity = useDerivedValue(() => {
+    'worklet';
+    return particleOpacity(particleProgress(clock.value, seed), bright);
+  });
+
+  if (kind === 'bubbles') {
+    return (
+      <Group transform={transform} opacity={opacity}>
+        <Circle c={vec(0, 0)} r={4} color={color} style="stroke" strokeWidth={1.2} />
+      </Group>
+    );
+  }
+
+  return (
+    <Group transform={transform} opacity={opacity}>
+      <Path path={kind === 'shards' ? SHARD_PATH : STAR_PATH} color={color} />
+    </Group>
+  );
+}
+
+function WispParticle({ seed, clock, width, baseY, color, bright }: {
+  seed: Seed;
+  clock: SharedValue<number>;
+  width: number;
+  baseY: number;
+  color: string;
+  bright: number;
+}) {
+  const startX = seed.x * width;
+  const transform = useDerivedValue(() => {
+    'worklet';
+    const p = particleProgress(clock.value, seed);
+    return [{ translateX: startX + p * seed.drift }, { translateY: baseY - p * seed.rise }];
+  });
+  const opacity = useDerivedValue(() => {
+    'worklet';
+    return particleOpacity(particleProgress(clock.value, seed), bright);
+  });
+  const w = seed.size;
+  const h = seed.size * 2.4;
+  return (
+    <Group transform={transform} opacity={opacity}>
+      <Oval rect={rect(-w / 2, -h / 2, w, h)} color={color} />
+    </Group>
+  );
+}
+
 function ProfileParticle({ kind, seed, clock, width, baseY, color, bright }: {
   kind: ParticleKind;
   seed: Seed;
@@ -150,93 +266,57 @@ function ProfileParticle({ kind, seed, clock, width, baseY, color, bright }: {
   color: string;
   bright: number;
 }) {
-  const startX = seed.x * width;
-
-  // Loop progress 0..1, then derived position/opacity, all on the UI thread.
-  const cy = useDerivedValue(() => {
-    'worklet';
-    const p = ((clock.value / seed.period + seed.phase) % 1 + 1) % 1;
-    return baseY - p * seed.rise;
-  });
-  const cx = useDerivedValue(() => {
-    'worklet';
-    const p = ((clock.value / seed.period + seed.phase) % 1 + 1) % 1;
-    return startX + p * seed.drift;
-  });
-  const c = useDerivedValue(() => vec(cx.value, cy.value));
-
-  // Opacity envelope: fade in quickly, fade out near the top.
-  const opacity = useDerivedValue(() => {
-    'worklet';
-    const p = ((clock.value / seed.period + seed.phase) % 1 + 1) % 1;
-    const env = p < 0.15 ? p / 0.15 : p > 0.85 ? (1 - p) / 0.15 : 1;
-    return env * bright;
-  });
-
-  // Plain position transform (wisps ride this without spin or scale).
-  const posTransform = useDerivedValue(() => {
-    'worklet';
-    return [{ translateX: cx.value }, { translateY: cy.value }];
-  });
-
-  // Spin/scale transform for the path-based kinds (shards tumble, stars twinkle,
-  // bubbles swell as they rise). Identity-ish for the simple dot kinds.
-  const shapeTransform = useDerivedValue(() => {
-    'worklet';
-    const p = ((clock.value / seed.period + seed.phase) % 1 + 1) % 1;
-    const rot = (clock.value / 1000) * seed.spin * (kind === 'shards' ? 2.2 : 0.9);
-    const scale = (seed.size / 4) * (kind === 'bubbles' ? 0.7 + p * 0.6 : 1);
-    return [
-      { translateX: cx.value },
-      { translateY: cy.value },
-      { rotate: rot },
-      { scale },
-    ];
-  });
-
-  if (kind === 'shards' || kind === 'stars') {
+  if (kind === 'shards' || kind === 'stars' || kind === 'bubbles') {
     return (
-      <Group transform={shapeTransform} opacity={opacity}>
-        <Path path={kind === 'shards' ? SHARD_PATH : STAR_PATH} color={color} />
-      </Group>
-    );
-  }
-  if (kind === 'bubbles') {
-    return (
-      <Group transform={shapeTransform} opacity={opacity}>
-        <Circle c={vec(0, 0)} r={4} color={color} style="stroke" strokeWidth={1.2} />
-      </Group>
+      <ShapeParticle
+        kind={kind}
+        seed={seed}
+        clock={clock}
+        width={width}
+        baseY={baseY}
+        color={color}
+        bright={bright}
+      />
     );
   }
   if (kind === 'wisps') {
-    // Elongated soft ellipse — a rising vapor trail.
-    const w = seed.size;
-    const h = seed.size * 2.4;
     return (
-      <Group transform={posTransform} opacity={opacity}>
-        <Oval rect={rect(-w / 2, -h / 2, w, h)} color={color} />
-      </Group>
+      <WispParticle
+        seed={seed}
+        clock={clock}
+        width={width}
+        baseY={baseY}
+        color={color}
+        bright={bright}
+      />
     );
   }
   if (kind === 'ash') {
-    // Flat matte fleck: no glow gradient, reduced opacity.
-    return <Circle c={c} r={seed.size} color={withAlpha(color, 0.7)} opacity={opacity} />;
-  }
-  // sparks + motes: soft glowing dot fading to ITS OWN color (003 US2) — never
-  // a fixed orange — so off-palette flames get matching sparks.
-  return (
-    <Circle c={c} r={seed.size} opacity={opacity}>
-      <RadialGradient
-        c={c}
-        r={seed.size}
-        colors={[color, color, withAlpha(color, 0)]}
-        positions={[0, 0.45, 1]}
+    return (
+      <DotParticle
+        seed={seed}
+        clock={clock}
+        width={width}
+        baseY={baseY}
+        color={color}
+        bright={bright}
+        ash
       />
-    </Circle>
+    );
+  }
+  return (
+    <DotParticle
+      seed={seed}
+      clock={clock}
+      width={width}
+      baseY={baseY}
+      color={color}
+      bright={bright}
+    />
   );
 }
 
-function Embers({ width, height, intensity, palette, activeStyle }: EmbersProps) {
+function Embers({ width, height, intensity, palette, activeStyle, clock }: EmbersProps) {
   const baseY = height - 150; // just above the logs (matches the flame base)
 
   // Ambient pool: constant count, deterministic, independent of the profile.
@@ -247,27 +327,13 @@ function Embers({ width, height, intensity, palette, activeStyle }: EmbersProps)
   // become multiple pools). Memoized on profile + dimensions: a flame switch
   // rebuilds pools once; re-renders and the clock never regenerate seeds.
   const profileParticles = useMemo(() => {
+    if (intensity <= 0) return [];
     const descriptors = resolveParticleDescriptors(resolveVisualProfile(activeStyle));
     return descriptors.map((d, i) => ({
       descriptor: d,
       seeds: makeProfileSeeds(d, i, width, height * 0.55),
     }));
-  }, [activeStyle, width, height]);
-
-  // One shared clock for every particle, advanced each animation frame.
-  const clock = useSharedValue(0);
-  const reducedMotion = useReducedMotion();
-  useEffect(() => {
-    if (reducedMotion) return; // freeze particles when the OS asks (a11y)
-    let raf: number;
-    const start = Date.now();
-    const tick = () => {
-      clock.value = Date.now() - start;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [clock, reducedMotion]);
+  }, [activeStyle, width, height, intensity]);
 
   return (
     <Canvas style={{ width, height }} pointerEvents="none">

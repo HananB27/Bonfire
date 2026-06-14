@@ -9,20 +9,20 @@
  *  - the equipped flame's palette feeds the flame, embers AND hearth, so every
  *    light source in the scene matches the active flame (003 US2).
  *
- * A shared `progress` value (0 closed → 1 open) is owned here and passed to BOTH
- * the calendar sheet (which drives it) and the flame (which lifts/dims with it),
- * so they move in lock-step (mirrors `app.jsx` calProg).
+ * A shared `progress` value (0 closed → 1 open) is owned here and passed to the
+ * calendar sheet (which drives it) and caption (which fades out behind it).
+ * The flame stays physically fixed; opening the calendar should not move the fire.
  *
  * Until both stores finish loading we show a plain dark screen (no premature
  * "unlit" flash — FR-015). A `__DEV__`-only "advance a day" pill lets us test the
  * two-missed-days extinguish rule without waiting for real days to pass.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSharedValue } from 'react-native-reanimated';
+import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import Flame from '../components/Bonfire/Flame';
 import Embers from '../components/Bonfire/Embers';
 import Hearth from '../components/Bonfire/Hearth';
@@ -71,8 +71,20 @@ function BonfireScreen() {
     [states, setFlameStyle],
   );
 
-  // Calendar open progress (0..1), shared with the flame so it lifts as we open.
+  // Calendar open progress (0..1). The flame does not consume this; it stays put.
   const progress = useSharedValue(0);
+  const sceneClock = useSharedValue(0);
+  const reducedMotion = useReducedMotion();
+  const sceneFrame = useFrameCallback(frame => {
+    'worklet';
+    if (progress.value <= 0.001) {
+      sceneClock.value = frame.timeSinceFirstFrame ?? 0;
+    }
+  }, false);
+
+  useEffect(() => {
+    sceneFrame.setActive(!reducedMotion);
+  }, [reducedMotion, sceneFrame]);
 
   const ready = entriesReady && settingsReady;
 
@@ -100,9 +112,24 @@ function BonfireScreen() {
           flame (shape/motion/aura/accents) and embers (particle mix); palette +
           dim still control color/energy, so embered behavior is unchanged. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Flame fire={fire} activeStyle={activeStyle} palette={effectivePalette} width={width} height={height} lift={progress} dim={dim} />
+        <Flame
+          fire={fire}
+          activeStyle={activeStyle}
+          palette={effectivePalette}
+          width={width}
+          height={height}
+          dim={dim}
+          clock={sceneClock}
+        />
         <View style={StyleSheet.absoluteFill}>
-          <Embers width={width} height={height} intensity={visual.intensity} palette={effectivePalette} activeStyle={activeStyle} />
+          <Embers
+            width={width}
+            height={height}
+            intensity={visual.intensity}
+            palette={effectivePalette}
+            activeStyle={activeStyle}
+            clock={sceneClock}
+          />
         </View>
         <Hearth fire={fire} glow={visual.glow} palette={effectivePalette} />
         <FireCaption fire={fire} lift={progress} />

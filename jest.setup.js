@@ -105,6 +105,7 @@ jest.mock('react-native-reanimated', () => {
     default: Animated,
     useReducedMotion: () => false,
     useSharedValue: init => ({ value: init }),
+    useFrameCallback: () => ({ setActive: () => {}, isActive: false, callbackId: 0 }),
     useDerivedValue: fn => ({ value: safe(fn) }),
     useAnimatedStyle: fn => safe(fn) || {},
     withTiming: v => v,

@@ -48,7 +48,6 @@ import {
 } from '@shopify/react-native-skia';
 import {
   useDerivedValue,
-  useReducedMotion,
   useSharedValue,
   withSequence,
   withSpring,
@@ -79,9 +78,9 @@ interface FlameProps {
   palette: Palette;
   width: number;
   height: number;
-  // 0 = closed, 1 = calendar fully open. Lifts + shrinks the flame as the sheet
-  // rises (mirrors `app.jsx` calProg → translateY/scale on `.scene`).
-  lift?: SharedValue<number>;
+  // Shared scene clock from BonfireScreen. Keeps Flame and Embers on one UI
+  // frame source instead of two JS requestAnimationFrame loops.
+  clock: SharedValue<number>;
   // Energy knob for a LOCKED ("embered") flame: scales glow + brightness down so
   // the same flame reads as spent. Default 1 = full energy (no visual change).
   dim?: number;
@@ -148,6 +147,8 @@ function tonguePath(cx: number, baseY: number, w: number, h: number, edge: strin
 function brightnessMatrix(b: number): number[] {
   return [b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
 }
+
+const IDENTITY_COLOR_MATRIX = brightnessMatrix(1);
 
 // A 4×5 hue-rotation color matrix (the standard SVG feColorMatrix formula).
 // Used for static per-tongue hue offsets (Aurora/Nebula layers) and the
@@ -301,21 +302,28 @@ function Tongue({
             : layer.name === 'mid' ? [0, 0.35, 0.8, 1]
             : colors.length === 2 ? [0, 1]
             : [0, 0.45, 0.88];
-          return (
+          const path = (
+            <Path
+              path={paths[layer.name]}
+              // The dark void core must NOT screen-blend (screen would erase
+              // dark colors); everything else stays additive.
+              blendMode={layer.name === 'core' && invertCore ? 'srcOver' : undefined}
+              opacity={layer.name === 'core' ? corePulse : undefined}>
+              <LinearGradient
+                start={vec(cx, baseY)}
+                end={vec(cx, baseY - lh)}
+                colors={colors}
+                positions={positions}
+              />
+            </Path>
+          );
+          return layer.blur > 0 ? (
             <Group key={layer.name} layer={<Paint><Blur blur={layer.blur} /></Paint>}>
-              <Path
-                path={paths[layer.name]}
-                // The dark void core must NOT screen-blend (screen would erase
-                // dark colors); everything else stays additive.
-                blendMode={layer.name === 'core' && invertCore ? 'srcOver' : undefined}
-                opacity={layer.name === 'core' ? corePulse : undefined}>
-                <LinearGradient
-                  start={vec(cx, baseY)}
-                  end={vec(cx, baseY - lh)}
-                  colors={colors}
-                  positions={positions}
-                />
-              </Path>
+              {path}
+            </Group>
+          ) : (
+            <Group key={layer.name}>
+              {path}
             </Group>
           );
         })}
@@ -425,7 +433,7 @@ function AuroraBand({ clock, cx, baseY, fh, colors }: {
   );
 }
 
-function Flame({ fire, activeStyle, palette, width, height, lift, dim = 1 }: FlameProps) {
+function Flame({ fire, activeStyle, palette, width, height, clock, dim = 1 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
   // ---- Resolve the BonfireDesign profile into plain render descriptors ----
@@ -445,8 +453,6 @@ function Flame({ fire, activeStyle, palette, width, height, lift, dim = 1 }: Fla
   const glow = visual.glow * dim * aura.opacityScale * Math.min(strength.aura, 1.3);
   const bright = visual.bright * dim;
   const lit = fire.state === 'lit';
-  // Honor the OS "reduce motion" setting: freeze the flicker loop when set.
-  const reducedMotion = useReducedMotion();
 
   const cx = width / 2;
   const baseY = height - BASE_FROM_BOTTOM;
@@ -496,36 +502,18 @@ function Flame({ fire, activeStyle, palette, width, height, lift, dim = 1 }: Fla
     prevLit.value = lit;
   }, [lit, fire.strength, grow, opacity, prevStrength, prevLit]);
 
-  // ---- Per-frame flicker on the UI thread (shared clock) ----
-  // A free-running clock in ms; every tongue/accent derives its motion from it.
-  // Reduced motion keeps the clock at 0 → every derived transform is static.
-  const clock = useSharedValue(0);
-  useEffect(() => {
-    if (reducedMotion) return; // keep the flame still (a11y)
-    let raf: number;
-    const start = Date.now();
-    const tick = () => {
-      clock.value = Date.now() - start;
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [clock, reducedMotion]);
-
-  // Whole-flame transform: grow pop + calendar lift + profile footprint +
-  // profile group sway (Magenta). Footprint is the BonfireDesign 1.2/1.3×
-  // oversize trait; sway is a slow clock-driven sideways rock.
+  // Whole-flame transform: grow pop + profile footprint + profile group sway
+  // (Magenta). Footprint is the BonfireDesign 1.2/1.3× oversize trait; sway is
+  // a slow clock-driven sideways rock. The calendar never moves the flame.
   const flameTransform = useDerivedValue(() => {
     'worklet';
-    const l = lift ? lift.value : 0;
     const swayX =
       motion.sway > 0 ? Math.sin(clock.value / (2400 * motion.speed) * Math.PI * 2) * motion.sway : 0;
     return [
       { translateX: cx },
       { translateY: baseY },
       { translateX: swayX },
-      { translateY: -0.18 * l * height },
-      { scale: grow.value * (1 - 0.4 * l) * shape.footprint },
+      { scale: grow.value * shape.footprint },
       { translateX: -cx },
       { translateY: -baseY },
     ];
@@ -548,7 +536,7 @@ function Flame({ fire, activeStyle, palette, width, height, lift, dim = 1 }: Fla
   // hue-rotation color matrix. Identity when the profile doesn't drift.
   const hueDriftMatrix = useDerivedValue(() => {
     'worklet';
-    if (motion.hueDriftMs <= 0) return hueRotateMatrix(0);
+    if (motion.hueDriftMs <= 0) return IDENTITY_COLOR_MATRIX;
     const p = Math.sin((clock.value / motion.hueDriftMs) * Math.PI * 2);
     return hueRotateMatrix(p * 20);
   });

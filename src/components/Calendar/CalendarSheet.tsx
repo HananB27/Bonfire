@@ -27,7 +27,7 @@
  * `.value` inside gesture callbacks/worklets is the documented Reanimated API,
  * not an illegal prop mutation. The rule cannot know this. */
 
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -75,32 +75,35 @@ function CalendarSheet({
 
   // One pan formula works for both handle (drag up) and header (drag down):
   // moving up (negative translationY) increases progress.
-  const makePan = () =>
-    Gesture.Pan()
-      .onBegin(() => {
-        startProgress.value = progress.value;
-      })
-      .onUpdate(e => {
-        const next = startProgress.value + -e.translationY / sheetH;
-        progress.value = Math.min(1, Math.max(0, next));
-      })
-      .onEnd(e => {
-        // Snap by position + a flick of velocity.
-        const goingOpen = progress.value > 0.5 || e.velocityY < -600;
-        const stayingOpen = goingOpen && e.velocityY < 600;
-        if (stayingOpen) {
-          progress.value = withTiming(1, TIMING);
-        } else {
-          progress.value = withTiming(0, TIMING);
-          runOnJS(setSelected)(null);
-        }
-      });
+  const makePan = useCallback(
+    () =>
+      Gesture.Pan()
+        .onBegin(() => {
+          startProgress.value = progress.value;
+        })
+        .onUpdate(e => {
+          const next = startProgress.value + -e.translationY / sheetH;
+          progress.value = Math.min(1, Math.max(0, next));
+        })
+        .onEnd(e => {
+          // Snap by position + a flick of velocity.
+          const goingOpen = progress.value > 0.5 || e.velocityY < -600;
+          const stayingOpen = goingOpen && e.velocityY < 600;
+          if (stayingOpen) {
+            progress.value = withTiming(1, TIMING);
+          } else {
+            progress.value = withTiming(0, TIMING);
+            runOnJS(setSelected)(null);
+          }
+        }),
+    [progress, sheetH, startProgress],
+  );
 
-  const handlePan = makePan();
-  const headerPan = makePan();
-  const handleTap = Gesture.Tap().onEnd(() => {
+  const handlePan = useMemo(() => makePan(), [makePan]);
+  const headerPan = useMemo(() => makePan(), [makePan]);
+  const handleTap = useMemo(() => Gesture.Tap().onEnd(() => {
     progress.value = withTiming(1, TIMING);
-  });
+  }), [progress]);
 
   // Full-screen swipe-to-open (FR-025): the same pan math as the handle, but
   // armed across the whole closed screen like a phone's status-bar shade.
@@ -108,20 +111,33 @@ function CalendarSheet({
   // never on downward movement — so simple taps and horizontal swipes pass
   // through untouched. The overlay sits on top of the scrim, so it also owns
   // "tap above the open sheet to close" (the tap is a no-op while closed).
-  const fullScreenPan = makePan().activeOffsetY([-12, 9999]);
+  const fullScreenPan = useMemo(
+    () => makePan().activeOffsetY([-12, 9999]),
+    [makePan],
+  );
 
   // Down-only pan over the OPEN sheet's body (003 US4, FR-010): the mirror
   // image of the full-screen up-pan. Activates only after ~12px of downward
   // travel, and `makePan`'s onEnd already snaps + clears the selected day on
   // close — so a downward drag anywhere on the calendar dismisses it.
-  const sheetPan = makePan().activeOffsetY([-9999, 12]);
-  const overlayTap = Gesture.Tap().onEnd(() => {
+  const sheetPan = useMemo(
+    () => makePan().activeOffsetY([-9999, 12]),
+    [makePan],
+  );
+  const overlayTap = useMemo(() => Gesture.Tap().onEnd(() => {
     if (progress.value > 0.5) {
       progress.value = withTiming(0, TIMING);
       runOnJS(setSelected)(null);
     }
-  });
-  const fullScreenGesture = Gesture.Race(fullScreenPan, overlayTap);
+  }), [progress]);
+  const fullScreenGesture = useMemo(
+    () => Gesture.Race(fullScreenPan, overlayTap),
+    [fullScreenPan, overlayTap],
+  );
+  const handleGesture = useMemo(
+    () => Gesture.Exclusive(handlePan, handleTap),
+    [handlePan, handleTap],
+  );
 
   // Sheet slides up: translateY from sheetH (hidden) to 0 (open).
   const sheetStyle = useAnimatedStyle(() => ({
@@ -150,7 +166,7 @@ function CalendarSheet({
       </GestureDetector>
 
       {/* closed-state affordance: swipe up / tap to open */}
-      <GestureDetector gesture={Gesture.Exclusive(handlePan, handleTap)}>
+      <GestureDetector gesture={handleGesture}>
         <Animated.View
           style={[styles.affHandle, handleStyle]}
           pointerEvents="auto"
@@ -240,7 +256,6 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.10)',
     paddingHorizontal: 18,
     paddingBottom: 24,
-    overflow: 'hidden',
   },
   grabHeader: { paddingTop: 12, paddingBottom: 6, alignItems: 'center' },
   grab: {
