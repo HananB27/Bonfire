@@ -105,8 +105,8 @@ longer continuity. They must not require low averages, intentionally low scores,
 breaking/extinguishing a streak/fire. The amended flames now use positive unlocks:
 
 - **Ember `unbrokenChainMinScore(10, min=3)`**: 10 consecutive scored days, all 3 or higher. Window 14.
-- **Spectral `crossStrength(30)`**: latest day the current run crosses strength 30. Window 10.
-- **Phoenix `crossStrength(150)`**: latest day the current run crosses strength 150. Window 21.
+- **Spectral `crossStrength(30)`**: latest scored day the current run is at strength 30 or higher. Window 10.
+- **Phoenix `crossStrength(150)`**: latest scored day the current run is at strength 150 or higher. Window 21.
 
 **Rationale**: Unlocks should never teach users to play worse. These rules are concrete,
 deterministic, derivable from the timeline, and compatible with the catalog guard test.

@@ -198,6 +198,28 @@ test('FR-022 a time flame is re-earnable indefinitely: earn → expire → earn 
   expect(reearned.daysLeft).toBe(7);
 });
 
+test('crossStrength time flames refresh while the current run stays above threshold', () => {
+  // Spectral used to expire 10 days after the first threshold crossing even
+  // though the run stayed lit and far above strength 30.
+  const spectralEntries = build(Array.from({ length: 20 }, (_, i) => [i - 19, 5] as [number, Score]));
+  const spectral = evalFlame('spectral', spectralEntries);
+  expect(computeFire(spectralEntries, TODAY).strength).toBeGreaterThanOrEqual(30);
+  expect(spectral.unlocked).toBe(true);
+  expect(spectral.achievementDay).toBe(day(0));
+  expect(spectral.daysLeft).toBe(10);
+  expect(spectral.expired).toBe(false);
+
+  // Solfire has the same condition kind at a higher threshold, so verify the
+  // 100-strength flame also refreshes from the latest scored day.
+  const solfireEntries = build(Array.from({ length: 40 }, (_, i) => [i - 39, 5] as [number, Score]));
+  const solfire = evalFlame('solfire', solfireEntries);
+  expect(computeFire(solfireEntries, TODAY).strength).toBeGreaterThanOrEqual(100);
+  expect(solfire.unlocked).toBe(true);
+  expect(solfire.achievementDay).toBe(day(0));
+  expect(solfire.daysLeft).toBe(14);
+  expect(solfire.expired).toBe(false);
+});
+
 test('#10 two orderings of the same edits → identical state map (SC-005)', () => {
   const pairs: [number, Score][] = [
     [-6, 5],

@@ -200,14 +200,14 @@ function evalCondition(
     }
 
     case 'crossStrength': {
-      // Latest day the run's strength first crosses ≥ n (each run can cross once).
+      // Latest scored day where the live run is at/above n. This keeps threshold
+      // flames available while the user continues maintaining that strong run.
       let day: DateKey | null = null;
       let best = 0;
       const t = m.timeline;
       for (let i = 0; i < t.length; i++) {
         if (t[i].strength > best) best = t[i].strength;
-        const prev = i > 0 ? t[i - 1].strength : 0;
-        if (t[i].strength >= p.n && prev < p.n) day = t[i].date;
+        if (t[i].score !== undefined && t[i].alive && t[i].strength >= p.n) day = t[i].date;
       }
       return { complete: day !== null, progress: { value: best, target: p.n }, completionDay: day ?? undefined };
     }

@@ -67,7 +67,7 @@ Each: `(m, today, params) → { complete: boolean; progress: {value,target}; com
     `completionDay` = that week's Sunday (or last day completing it).
   - `consecutivePerfectWeeks(weeks,minScore,minPerfect)`: latest day completing `weeks` back-to-back
     qualifying weeks with ≥ `minPerfect` perfect days across them.
-  - `crossStrength(n)`: latest day the run's strength first reaches `≥ n`.
+  - `crossStrength(n)`: latest scored day the live run's strength is `≥ n`.
 
 Condition evaluators must never reward low scores or require intentionally breaking/extinguishing a
 streak/fire (FR-011a, FR-011b).
