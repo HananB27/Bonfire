@@ -27,7 +27,7 @@
  * `.value` inside gesture callbacks/worklets is the documented Reanimated API,
  * not an illegal prop mutation. The rule cannot know this. */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -48,8 +48,12 @@ import ScorePickerBar from './ScorePickerBar';
 interface CalendarSheetProps {
   today: DateKey;
   entries: Entries;
+  selectedDate: DateKey | null;
+  onSelectDate: (date: DateKey | null) => void;
   onSet: (date: DateKey, score: Score) => void;
   onClear: (date: DateKey) => void;
+  noteDraft: string;
+  onNoteChange: (text: string) => void;
   progress: SharedValue<number>; // 0 closed → 1 open (shared with the flame lift)
   height: number; // full screen height
 }
@@ -62,13 +66,16 @@ const TIMING = {
 function CalendarSheet({
   today,
   entries,
+  selectedDate,
+  onSelectDate,
   onSet,
   onClear,
+  noteDraft,
+  onNoteChange,
   progress,
   height,
 }: CalendarSheetProps) {
   const sheetH = Math.round(height * 0.72);
-  const [selected, setSelected] = useState<DateKey | null>(null);
 
   // Drag start reference for the pan gestures.
   const startProgress = useSharedValue(0);
@@ -93,10 +100,10 @@ function CalendarSheet({
             progress.value = withTiming(1, TIMING);
           } else {
             progress.value = withTiming(0, TIMING);
-            runOnJS(setSelected)(null);
+            runOnJS(onSelectDate)(null);
           }
         }),
-    [progress, sheetH, startProgress],
+    [onSelectDate, progress, sheetH, startProgress],
   );
 
   const handlePan = useMemo(() => makePan(), [makePan]);
@@ -127,9 +134,9 @@ function CalendarSheet({
   const overlayTap = useMemo(() => Gesture.Tap().onEnd(() => {
     if (progress.value > 0.5) {
       progress.value = withTiming(0, TIMING);
-      runOnJS(setSelected)(null);
+      runOnJS(onSelectDate)(null);
     }
-  }), [progress]);
+  }), [onSelectDate, progress]);
   const fullScreenGesture = useMemo(
     () => Gesture.Race(fullScreenPan, overlayTap),
     [fullScreenPan, overlayTap],
@@ -192,20 +199,22 @@ function CalendarSheet({
           <MonthGrid
             today={today}
             entries={entries}
-            selectedDate={selected}
-            onSelectDay={setSelected}
+            selectedDate={selectedDate}
+            onSelectDay={onSelectDate}
           />
 
           <ScorePickerBar
-            dateKey={selected}
-            currentScore={selected ? entries[selected] : undefined}
+            dateKey={selectedDate}
+            currentScore={selectedDate ? entries[selectedDate] : undefined}
+            noteDraft={noteDraft}
+            onNoteChange={onNoteChange}
             onChoose={score => {
-              if (selected) onSet(selected, score);
-              setSelected(null);
+              if (selectedDate) onSet(selectedDate, score);
+              onSelectDate(null);
             }}
             onClear={() => {
-              if (selected) onClear(selected);
-              setSelected(null);
+              if (selectedDate) onClear(selectedDate);
+              onSelectDate(null);
             }}
           />
         </Animated.View>

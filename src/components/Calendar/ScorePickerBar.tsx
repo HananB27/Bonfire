@@ -2,15 +2,16 @@
  * ScorePickerBar.tsx — the inline 1–5 score picker that slides up inside the
  * calendar sheet when a day is tapped (mirrors `styles.css .picker-bar`).
  *
- * Five heat-colored buttons (1..5) + a Clear button (disabled when the day has
- * no score yet). Choosing a score logs it; Clear removes it. The bar slides in
- * from below via Reanimated when `dateKey` becomes non-null.
+ * Day note editor + five heat-colored buttons (1..5) + a Clear button
+ * (disabled when the day has no score yet). The whole panel slides in together
+ * when `dateKey` becomes non-null, and rides above the keyboard while editing.
  */
 
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedStyle,
+  useAnimatedKeyboard,
   useSharedValue,
   withTiming,
   Easing,
@@ -18,10 +19,13 @@ import Animated, {
 import type { Score } from '../../domain/fire';
 import { parseYmd, type DateKey } from '../../domain/dates';
 import { heatStyle, ink } from '../../theme/tokens';
+import DayNoteEditor from './DayNoteEditor';
 
 interface ScorePickerBarProps {
   dateKey: DateKey | null; // the day being edited (null = closed)
   currentScore?: Score;
+  noteDraft: string;
+  onNoteChange: (text: string) => void;
   onChoose: (score: Score) => void;
   onClear: () => void;
 }
@@ -34,9 +38,17 @@ function labelFor(dateKey: DateKey): string {
   return `${WEEKDAYS[d.getDay()]}, ${MONTHS_SHORT[d.getMonth()]} ${d.getDate()}`;
 }
 
-function ScorePickerBar({ dateKey, currentScore, onChoose, onClear }: ScorePickerBarProps) {
+function ScorePickerBar({
+  dateKey,
+  currentScore,
+  noteDraft,
+  onNoteChange,
+  onChoose,
+  onClear,
+}: ScorePickerBarProps) {
   const open = dateKey !== null;
   const progress = useSharedValue(0);
+  const keyboard = useAnimatedKeyboard();
 
   useEffect(() => {
     progress.value = withTiming(open ? 0 : 1, {
@@ -45,13 +57,21 @@ function ScorePickerBar({ dateKey, currentScore, onChoose, onClear }: ScorePicke
     });
   }, [open, progress]);
 
-  // translateY: 0 when open, fully below (112%) when closed.
+  // The note editor and score buttons move as one panel. Keyboard height is
+  // subtracted so the selected-day controls stay visible while text input has
+  // focus, then glide back to the bottom as the keyboard closes.
   const slide = useAnimatedStyle(() => ({
-    transform: [{ translateY: progress.value * 240 }],
+    transform: [{ translateY: progress.value * 430 - keyboard.height.value }],
   }));
 
   return (
     <Animated.View style={[styles.bar, slide]} pointerEvents={open ? 'auto' : 'none'}>
+      <DayNoteEditor
+        dateKey={dateKey}
+        value={noteDraft}
+        onChangeText={onNoteChange}
+      />
+
       <View style={styles.head}>
         <Text style={styles.date}>{dateKey ? labelFor(dateKey) : ''}</Text>
         <Pressable
@@ -103,7 +123,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: 12,
     paddingBottom: 22,
     zIndex: 8,
   },

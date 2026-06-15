@@ -32,6 +32,7 @@ import SettingsSheet from '../components/Settings/SettingsSheet';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
 import type { FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
+import { useDayNotes } from '../hooks/useDayNotes';
 import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
 import { bg0, bg1, gold, inkDim } from '../theme/tokens';
@@ -44,8 +45,14 @@ function BonfireScreen() {
   const realToday = useMemo(() => todayKey(), []);
   const [devOffset, setDevOffset] = useState(0);
   const today: DateKey = useMemo(() => addDays(realToday, devOffset), [realToday, devOffset]);
+  const [selectedDate, setSelectedDate] = useState<DateKey | null>(null);
 
   const { entries, fire, ready: entriesReady, setScore, clearScore } = useEntries(today);
+  const {
+    draft: noteDraft,
+    ready: notesReady,
+    setDraft: setNoteDraft,
+  } = useDayNotes(selectedDate);
   const { settings, ready: settingsReady, setFlameStyle } = useSettings();
 
   // Derive every flame's unlock state + what the active flame should render
@@ -85,7 +92,7 @@ function BonfireScreen() {
     sceneFrame.setActive(!reducedMotion);
   }, [reducedMotion, sceneFrame]);
 
-  const ready = entriesReady && settingsReady;
+  const ready = entriesReady && notesReady && settingsReady;
 
   // Loading: a plain dark screen until both stores load (FR-015).
   if (!ready) {
@@ -161,8 +168,12 @@ function BonfireScreen() {
       <CalendarSheet
         today={today}
         entries={entries}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
         onSet={setScore}
         onClear={clearScore}
+        noteDraft={noteDraft}
+        onNoteChange={setNoteDraft}
         progress={progress}
         height={height}
       />

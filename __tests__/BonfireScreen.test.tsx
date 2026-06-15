@@ -119,6 +119,51 @@ test('clearing the only scored day returns the fire to unlit (recompute)', async
   expect(allText(tree)).toContain('tap a day to spark it'); // unlit again
 });
 
+test('autosaves a daily memory note and shows it again after reopening the day', async () => {
+  const tree = await renderScreen();
+
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 4');
+  await press(tree, 'scored 4 out of 5');
+
+  const input = tree.root.findByProps({ accessibilityLabel: 'Daily memory note' });
+  await act(async () => {
+    input.props.onChangeText('Noon walk helped.');
+  });
+
+  await press(tree, 'Score 4');
+  await press(tree, 'scored 4 out of 5');
+
+  expect(tree.root.findByProps({ accessibilityLabel: 'Daily memory note' }).props.value).toBe(
+    'Noon walk helped.',
+  );
+});
+
+test('daily memory stays out of month view labels and visible text', async () => {
+  const tree = await renderScreen();
+
+  await press(tree, 'not yet logged');
+  await press(tree, 'Score 5');
+  await press(tree, 'scored 5 out of 5');
+  await act(async () => {
+    tree.root
+      .findByProps({ accessibilityLabel: 'Daily memory note' })
+      .props.onChangeText('Private month-view sentinel');
+  });
+  await press(tree, 'Score 5');
+
+  const monthCells = tree.root.findAll(
+    n =>
+      typeof n.props.accessibilityLabel === 'string' &&
+      /^\d{4}-\d{2}-\d{2},/.test(n.props.accessibilityLabel),
+  );
+  expect(monthCells.some(n => n.props.accessibilityLabel.includes('Private month-view sentinel'))).toBe(
+    false,
+  );
+  expect(allText(tree)).not.toContain('Private month-view sentinel');
+  expect(allText(tree)).not.toMatch(/note badge|note preview|memory marker/i);
+});
+
 test('can page back a month; next is capped at the current month (US3, FR-020)', async () => {
   const tree = await renderScreen();
   const nextBtn = () => tree.root.find(n => n.props.accessibilityLabel === 'Next month');

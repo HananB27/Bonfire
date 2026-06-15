@@ -85,17 +85,27 @@ function renderSheet(progressValue: number) {
   // Plain object stands in for the Reanimated shared value (see jest.setup.js).
   const progress = { value: progressValue } as SharedValue<number>;
   let tree!: ReactTestRenderer.ReactTestRenderer;
-  act(() => {
-    tree = ReactTestRenderer.create(
+
+  function Harness() {
+    const [selectedDate, setSelectedDate] = React.useState<string | null>(null);
+    return (
       <CalendarSheet
         today="2026-06-12"
         entries={{}}
+        selectedDate={selectedDate}
+        onSelectDate={setSelectedDate}
         onSet={() => {}}
         onClear={() => {}}
+        noteDraft=""
+        onNoteChange={() => {}}
         progress={progress}
         height={844}
-      />,
+      />
     );
+  }
+
+  act(() => {
+    tree = ReactTestRenderer.create(<Harness />);
   });
   return { tree, progress };
 }

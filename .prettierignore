@@ -6,3 +6,4 @@ dist/
 coverage/
 BonfireDesign/
 package-lock.json
+build/

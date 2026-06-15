@@ -52,6 +52,8 @@ expo-env.d.ts
 node_modules/
 npm-debug.log
 yarn-error.log
+*.log
+.env*
 
 # fastlane
 #
@@ -77,6 +79,12 @@ yarn-error.log
 
 # testing
 /coverage
+
+# Editor / OS / temp
+.vscode/
+Thumbs.db
+*.tmp
+*.swp
 
 # Yarn
 .yarn/*

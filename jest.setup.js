@@ -105,6 +105,7 @@ jest.mock('react-native-reanimated', () => {
     default: Animated,
     useReducedMotion: () => false,
     useSharedValue: init => ({ value: init }),
+    useAnimatedKeyboard: () => ({ height: { value: 0 }, state: { value: 0 } }),
     useFrameCallback: () => ({ setActive: () => {}, isActive: false, callbackId: 0 }),
     useDerivedValue: fn => ({ value: safe(fn) }),
     useAnimatedStyle: fn => safe(fn) || {},
