@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   date: { fontSize: 14, fontWeight: '700', color: ink },
-  clear: { color: '#ff9a7a', fontSize: 13, fontWeight: '600' },
+  clear: { color: '#ff9a7a', fontSize: 15, fontWeight: '800' },
   clearDisabled: { opacity: 0.35 },
   scores: { flexDirection: 'row', gap: 10 },
   btn: {

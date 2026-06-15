@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
-import { bg2, ink, inkDim, inkFaint, line } from '../../theme/tokens';
+import { ink, inkDim, inkFaint } from '../../theme/tokens';
 
 interface DayNoteEditorProps {
   dateKey: string | null;
@@ -45,30 +45,26 @@ function DayNoteEditor({
 const styles = StyleSheet.create({
   wrap: {
     marginBottom: 12,
-    padding: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: line,
-    backgroundColor: 'rgba(18,26,48,0.78)',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(18,26,48,0.92)',
   },
   label: {
-    marginBottom: 8,
+    marginBottom: 7,
     color: inkDim,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
   },
   input: {
-    minHeight: 70,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: bg2,
+    minHeight: 54,
     color: ink,
-    fontSize: 14,
-    lineHeight: 19,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
+    fontSize: 15,
+    lineHeight: 20,
+    paddingHorizontal: 0,
+    paddingTop: 2,
+    paddingBottom: 0,
   },
 });
 
