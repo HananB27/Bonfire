@@ -97,7 +97,7 @@ export interface ShapeDescriptor {
   edge: EdgeStyle;
   tongues: TongueDescriptor[];
   coreScale: number; // 1 = standard core size (Solfire: 1.7)
-  footprint: number; // whole-flame scale (Inferno 1.3, Nebula 1.2)
+  footprint: number; // whole-flame scale (Conflagration 1.3, Nebula 1.2)
   bodyOpacity: number; // translucent body (Ghostlight 0.55), 1 = solid
   invertCore: boolean; // dark "void" core (Voidfire)
 }

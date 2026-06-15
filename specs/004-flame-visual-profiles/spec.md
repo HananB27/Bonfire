@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Input**: User description: "Add data-driven visual profiles to existing 20 flames so rarity changes more than color. Keep current unlock logic, storage, gallery behavior, fire strength math. Direction: elemental identities + magical geometry, with very exotic rare flames. Extend `FlameStyle` with `visualProfile` data: `shape`, `motion`, `particles`, and `aura`. Flame Feature Map: Amber classic balanced bonfire; Crimson sharper red tongues; Sapphire taller cooler flame; Sodium narrow intense yellow lance; Strontium jagged red split flame; Emerald forked green flame with leaf motes; Lilac soft lavender twin tongues; Magenta wide saturated flame with pink star sparks; Ghostlight pale translucent low-gravity wisps; Toxic bubbling green warped core; Wisp detached teal vapor wisps; Ember low dense ash-flecked coal pulse; Spectral translucent layered afterimage; Frostfire icy white-blue shard tips; Inferno oversized violent crown; Solfire solar core with circular golden aura; Voidfire dark inverted core with purple outer flame and orbiting void rings; Aurora ribbon-like multi-lobed hue drift; Phoenix wing-like ash cycle; Nebula cosmic layered flame with stars, orbiting motes, shifting aura. Update the current spec 004 to heavily use the designed flames in BonfireDesign. It should take all of the designs from BonfireDesign and implement them. The updated flames must match the design from BonfireDesign."
+**Input**: User description: "Add data-driven visual profiles to existing 20 flames so rarity changes more than color. Keep current unlock logic, storage, gallery behavior, fire strength math. Direction: elemental identities + magical geometry, with very exotic rare flames. Extend `FlameStyle` with `visualProfile` data: `shape`, `motion`, `particles`, and `aura`. Flame Feature Map: Amber classic balanced bonfire; Crimson sharper red tongues; Sapphire taller cooler flame; Sodium narrow intense yellow lance; Strontium jagged red split flame; Emerald forked green flame with leaf motes; Lilac soft lavender twin tongues; Magenta wide saturated flame with pink star sparks; Ghostlight pale translucent low-gravity wisps; Toxic bubbling green warped core; Wisp detached teal vapor wisps; Ember low dense ash-flecked coal pulse; Spectral translucent layered afterimage; Frostfire icy white-blue shard tips; Conflagration oversized violent crown; Solfire solar core with circular golden aura; Voidfire dark inverted core with purple outer flame and orbiting void rings; Aurora ribbon-like multi-lobed hue drift; Phoenix wing-like ash cycle; Nebula cosmic layered flame with stars, orbiting motes, shifting aura. Update the current spec 004 to heavily use the designed flames in BonfireDesign. It should take all of the designs from BonfireDesign and implement them. The updated flames must match the design from BonfireDesign."
 
 ## Clarifications
 
@@ -39,7 +39,7 @@ A user opens the app with any unlocked flame equipped and can tell the flame ide
 
 ### User Story 2 - Motion Expresses Elemental Identity (Priority: P2)
 
-A user watches the active flame and sees movement that reinforces its BonfireDesign identity: Sapphire sways slowly and elegantly, Sodium shimmers quickly, Ghostlight floats with low gravity, Aurora drifts in color, and Inferno pulses violently.
+A user watches the active flame and sees movement that reinforces its BonfireDesign identity: Sapphire sways slowly and elegantly, Sodium shimmers quickly, Ghostlight floats with low gravity, Aurora drifts in color, and Conflagration pulses violently.
 
 **Why this priority**: Shape differentiation is static; motion makes the reward feel alive and gives high-rarity flames a stronger payoff without changing gameplay math.
 
@@ -136,7 +136,7 @@ A user continues to unlock, browse, equip, and lose flames exactly as before. Vi
   - Ember: rare #12 low smoldering flame; low dense dome, buried coal-red core, wide low ground glow, gray ash flecks plus occasional sparks, coal-pulse brightness.
   - Spectral: rare #13 layered afterimages; main tongue plus offset ghost copies, single core with core-less echoes, dim cyan halo, cyan motes, lagging ghost layers.
   - Frostfire: rare #14 crystalline cold burn; angular icy tongue with shard tips, hard-edged white core, crisp cold halo, tumbling ice shards, brittle harsh flicker.
-  - Inferno: rare #15 oversized violent crown; five-tongue crown with larger footprint, oversized white-gold core, wide halo plus expanding shock pulses, dense high sparks, violent harsh flicker.
+  - Conflagration: rare #15 oversized violent crown; five-tongue crown with larger footprint, oversized white-gold core, wide halo plus expanding shock pulses, dense high sparks, violent harsh flicker.
   - Solfire: rare #16 captive sun; compact round solar body, oversized bright core, circular golden halo plus solar outline, radiant stars and golden motes, steady core pulse.
   - Voidfire: rare #17 dark heart violet edge; sharp classic outline with inverted dark center, hollow ring halo, opposing orbiting void rings, violet motes, slow ominous flicker.
   - Aurora: rare #18 curtains of drifting light; three flowing ribbon lobes with hue-offset side lobes, soft mint core, dim wide halo with aurora band, wisps and motes, slow hue drift.

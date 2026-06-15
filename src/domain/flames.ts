@@ -176,7 +176,7 @@ export interface VisualProfile {
   particles: ParticleProfile[];
   aura: AuraProfile;
   accents: AccentProfile[];
-  footprint?: number; // whole-flame scale (Inferno 1.3, Nebula 1.2)
+  footprint?: number; // whole-flame scale (Conflagration 1.3, Nebula 1.2)
   paletteIntent: PaletteIntent;
   strengthResponse?: StrengthResponse;
   designRef: DesignReference;
@@ -573,7 +573,7 @@ const PROFILES: Record<FlameId, VisualProfile> = {
       implementationIntent: 'edge:crystal clip-path on the standard layer stack; particles:shards; aura crisp modifier.',
     },
   },
-  inferno: {
+  conflagration: {
     source: BONFIRE_DESIGN_SOURCE, designNumber: '15', designTier: 'rare',
     tagline: 'Oversized violent crown',
     shape: {
@@ -770,9 +770,9 @@ export const FLAMES: readonly FlameStyle[] = [
   flame('frostfire', 'Frostfire', 'time', 13, ['#FFFFFF', '#9FE8FF', '#2E7BD6'],
     time('perfectCalendarWeek', { minScore: 1 }, 14, 'Score every day of one calendar week'),
     PROFILES.frostfire),
-  flame('inferno', 'Inferno', 'time', 14, ['#FFFFFF', '#FFD24A', '#FF5A00'],
+  flame('conflagration', 'Conflagration', 'time', 14, ['#FFFFFF', '#FFD24A', '#FF5A00'],
     time('perfectCalendarWeek', { minScore: 4 }, 14, 'Score 4 or more every day of one calendar week'),
-    PROFILES.inferno),
+    PROFILES.conflagration),
   flame('solfire', 'Solfire', 'time', 15, ['#FFFFFF', '#FFE066', '#FFA21E'],
     time('crossStrength', { n: 100 }, 14, 'Reach run strength 100'), PROFILES.solfire),
   flame('voidfire', 'Voidfire', 'time', 16, ['#E2B3FF', '#8B2FE0', '#2A0A4A'],

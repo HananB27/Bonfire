@@ -143,7 +143,7 @@ describe('resolveShapeDescriptor — all 16 variants (US1)', () => {
   });
 
   test('special scale traits: footprint, coreScale, opacity, inverted core', () => {
-    expect(resolveShapeDescriptor(profileOf('inferno')).footprint).toBe(1.3);
+    expect(resolveShapeDescriptor(profileOf('conflagration')).footprint).toBe(1.3);
     expect(resolveShapeDescriptor(profileOf('nebula')).footprint).toBe(1.2);
     expect(resolveShapeDescriptor(profileOf('solfire')).coreScale).toBe(1.7);
     expect(resolveShapeDescriptor(profileOf('ghostlight')).bodyOpacity).toBe(0.55);
@@ -158,7 +158,7 @@ describe('resolveMotionDescriptor (US2)', () => {
   test('smooth vs harsh family and BonfireDesign speed pass through', () => {
     expect(resolveMotionDescriptor(profileOf('amber'))).toMatchObject({ family: 'smooth', speed: 1 });
     expect(resolveMotionDescriptor(profileOf('strontium')).family).toBe('harsh');
-    expect(resolveMotionDescriptor(profileOf('inferno')).family).toBe('harsh');
+    expect(resolveMotionDescriptor(profileOf('conflagration')).family).toBe('harsh');
     expect(resolveMotionDescriptor(profileOf('sodium')).speed).toBe(0.4); // fast shimmer
     expect(resolveMotionDescriptor(profileOf('ghostlight')).speed).toBe(2.4); // low-gravity drift
   });

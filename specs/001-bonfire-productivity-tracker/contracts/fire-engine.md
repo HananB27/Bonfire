@@ -58,7 +58,7 @@ today), or `'missed'` (past, unscored). Used by `DayCell`.
 
 ### `fireLabel(state: FireStatus, strength: number): { word, sub }`
 Caption words mirroring the design: Unlit / Out / A spark / Kindling / Steady / Blazing / Roaring /
-Inferno (with sub-text). Surfaced by `FireCaption` (allowed per spec terminology assumption).
+Conflagration (with sub-text). Surfaced by `FireCaption` (allowed per spec terminology assumption).
 
 ## Non-goals
 - No persistence, no formatting, no React state, no per-day contribution map (the calendar colors

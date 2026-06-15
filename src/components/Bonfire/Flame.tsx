@@ -89,12 +89,16 @@ export interface FlameProps {
   // Energy knob for a LOCKED ("embered") flame: scales glow + brightness down so
   // the same flame reads as spent. Default 1 = full energy (no visual change).
   dim?: number;
+  // Distance from scene bottom to the flame's visible lower edge. BonfireScreen
+  // derives this from the hearth top so the visual flame/log gap stays fixed
+  // across screen sizes and fire strengths.
+  visibleBottomFromBottom?: number;
 }
 
 // Distance (px) from the bottom of the canvas to the flame's base. The flame
 // path has a small rounded foot below this point, so keep the base above the log
 // tops to avoid the body rendering underneath the hearth.
-const BASE_FROM_BOTTOM = 216;
+export const DESIGN_FLAME_BASE_FROM_BOTTOM = 216;
 
 // The BonfireDesign 4-layer tongue rig: [name, width×fh, height×fh, blur].
 // Soft tongues (Wisp fragments) draw only mid+inner — no deep base, no hot core.
@@ -276,7 +280,7 @@ function hueRotateMatrix(deg: number): number[] {
  * Per-tongue flicker transform, computed on the UI thread from the shared
  * clock. Generic over the profile's motion descriptor:
  *  - `family` smooth = the original gentle sine wobble; harsh = extra
- *    higher-frequency jitter (Strontium/Frostfire/Inferno violence)
+ *    higher-frequency jitter (Strontium/Frostfire/Conflagration violence)
  *  - `speed` multiplies the PERIOD (BonfireDesign semantics: smaller = faster)
  *  - `lag` phase-shifts this tongue behind the others
  *  - `warp` adds the Toxic outline wobble; `ribbon` the Aurora wave;
@@ -455,7 +459,7 @@ function Tongue({
 // data. All live INSIDE the flame's fading group, so out-state hides them.
 // ---------------------------------------------------------------------------
 
-/** Expanding shock rings (Inferno). One ring loops outward from the base. */
+/** Expanding shock rings (Conflagration). One ring loops outward from the base. */
 function ShockPulse({ clock, cx, baseY, fh, color }: {
   clock: SharedValue<number>; cx: number; baseY: number; fh: number; color: string;
 }) {
@@ -540,7 +544,16 @@ function AuroraBand({ clock, cx, baseY, fh, colors }: {
   );
 }
 
-export function FlameLayer({ fire, activeStyle, palette, width, height, clock, dim = 1 }: FlameProps) {
+export function FlameLayer({
+  fire,
+  activeStyle,
+  palette,
+  width,
+  height,
+  clock,
+  dim = 1,
+  visibleBottomFromBottom,
+}: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
   // ---- Resolve the BonfireDesign profile into plain render descriptors ----
@@ -561,9 +574,13 @@ export function FlameLayer({ fire, activeStyle, palette, width, height, clock, d
   const bright = visual.bright * dim;
   const lit = fire.state === 'lit';
 
-  const cx = width / 2;
-  const baseY = height - BASE_FROM_BOTTOM;
   const fh = visual.height;
+  const flameFootExtension =
+    shape.edge === 'jagged' || shape.edge === 'crystal' ? 0 : fh * 0.06 * shape.footprint;
+  const resolvedVisibleBottomFromBottom =
+    visibleBottomFromBottom ?? DESIGN_FLAME_BASE_FROM_BOTTOM - flameFootExtension;
+  const cx = width / 2;
+  const baseY = height - resolvedVisibleBottomFromBottom - flameFootExtension;
 
   // ---- Layer geometry: one path per rig layer, with the profile's edge ----
   // Tongues reuse these canonical paths and shape them via their transforms,

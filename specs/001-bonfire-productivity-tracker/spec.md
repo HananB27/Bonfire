@@ -305,4 +305,4 @@ and confirm the flame is still Sapphire.
   cumulative sum of contributions); "size" is how that strength is shown as a larger flame. They are
   the same underlying quantity — strength is the metric, size is its visual representation. The app
   MAY also surface the strength value directly to the user via the flame caption (a state word such
-  as "Inferno" plus "strength N"), per the design; this is allowed, not required.
+  as "Conflagration" plus "strength N"), per the design; this is allowed, not required.

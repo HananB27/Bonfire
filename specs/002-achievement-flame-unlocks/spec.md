@@ -417,7 +417,7 @@ calendar days with no gaps.
 | **Ember** | Dying-coals calm low glow, slow pulse | `#FFB060 → #E8501E → #5C0E08` | A 10-day unbroken chain with every day scored ≥ 3 | 14 days |
 | **Spectral** | Semi-transparent cyan-white soulfire, ghostly shimmer | `#F0FFFF → #7FFFE0 → #2E9FB0` (low opacity) | Cross run strength ≥ 30 | 10 days from crossing |
 | **Frostfire** | Cold burn; icy cyan-white reading as "cold" | `#FFFFFF → #9FE8FF → #2E7BD6` | Every day of one calendar week scored (7/7, any score) | 14 days |
-| **Inferno** | White-hot core bleeding to orange; brightest/hottest | `#FFFFFF → #FFD24A → #FF5A00` | A calendar week where all 7 days are strong (≥4) | 14 days |
+| **Conflagration** | White-hot core bleeding to orange; brightest/hottest | `#FFFFFF → #FFD24A → #FF5A00` | A calendar week where all 7 days are strong (≥4) | 14 days |
 | **Solfire** | Solar-corona blinding white-gold, regal, radiating halo | `#FFFFFF → #FFE066 → #FFA21E` | Cross run strength ≥ 100 | 14 days from crossing |
 | **Voidfire** | Purple-black dark flame; core swallows light, edges glow | `#E2B3FF → #8B2FE0 → #2A0A4A` (near-black inner void) | A 14-day unbroken chain (no gaps) | 21 days |
 | **Aurora** *(new)* | Northern-lights ribbons; hue drifts green→teal→magenta→violet | `#B8FFD9 → #5FE0C0 → #FF7AD9 → #8B2FE0` (slow color drift) | A 30-day unbroken chain | 21 days |

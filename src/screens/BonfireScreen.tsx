@@ -19,12 +19,19 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
 import FireScene from '../components/Bonfire/FireScene';
-import Hearth from '../components/Bonfire/Hearth';
+import Hearth, { HEARTH_TOP_LOG_OFFSET } from '../components/Bonfire/Hearth';
 import FireCaption from '../components/Bonfire/FireCaption';
 import { flameVisual } from '../components/Bonfire/flameModel';
 import CalendarSheet from '../components/Calendar/CalendarSheet';
@@ -37,9 +44,23 @@ import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
 import { bg0, bg1, gold, inkDim } from '../theme/tokens';
 
+const DESIGN_HEARTH_BOTTOM = 144;
+const DESIGN_CAPTION_BOTTOM = 92;
+const DESIGN_FLAME_LOG_GAP = 8;
+
+export function fireLayoutForWidth(_width: number) {
+  const hearthBottom = DESIGN_HEARTH_BOTTOM;
+  return {
+    flameVisibleBottomFromBottom: hearthBottom + HEARTH_TOP_LOG_OFFSET + DESIGN_FLAME_LOG_GAP,
+    hearthBottom,
+    captionBottom: DESIGN_CAPTION_BOTTOM,
+  };
+}
+
 function BonfireScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const [sceneSize, setSceneSize] = useState({ width, height });
 
   // The "real" today is fixed per session; dev offset simulates days passing.
   const realToday = useMemo(() => todayKey(), []);
@@ -65,6 +86,19 @@ function BonfireScreen() {
     settings.flameStyle,
   );
   const visual = useMemo(() => flameVisual(fire), [fire]);
+  const sceneWidth = sceneSize.width || width;
+  const sceneHeight = sceneSize.height || height;
+  const fireLayout = useMemo(() => fireLayoutForWidth(sceneWidth), [sceneWidth]);
+
+  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setSceneSize(current =>
+      current.width === nextWidth && current.height === nextHeight
+        ? current
+        : { width: nextWidth, height: nextHeight },
+    );
+  }, []);
 
   // Locked-equip guard (FR-001, defense in depth): the gallery row already
   // refuses locked taps, but this wrapper makes the rule hold for ANY caller —
@@ -117,19 +151,26 @@ function BonfireScreen() {
           `activeStyle` (004) carries the BonfireDesign visualProfile into the
           flame (shape/motion/aura/accents) and embers (particle mix); palette +
           dim still control color/energy, so embered behavior is unchanged. */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={handleSceneLayout}>
+        <Hearth
+          fire={fire}
+          glow={visual.glow}
+          intensity={visual.intensity}
+          palette={effectivePalette}
+          bottom={fireLayout.hearthBottom}
+        />
         <FireScene
           fire={fire}
           activeStyle={activeStyle}
           palette={effectivePalette}
-          width={width}
-          height={height}
+          width={sceneWidth}
+          height={sceneHeight}
           flameDim={dim}
+          flameVisibleBottomFromBottom={fireLayout.flameVisibleBottomFromBottom}
           intensity={visual.intensity}
           clock={sceneClock}
         />
-        <Hearth fire={fire} glow={visual.glow} palette={effectivePalette} />
-        <FireCaption fire={fire} lift={progress} />
+        <FireCaption fire={fire} lift={progress} bottom={fireLayout.captionBottom} />
       </View>
 
       {/* settings (top-right): the gear opens the flame gallery */}

@@ -16,7 +16,8 @@
  */
 
 import React, { useEffect, useMemo } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -33,35 +34,35 @@ import { withAlpha, type Palette } from '../../theme/palettes';
 interface HearthProps {
   fire: FireState;
   glow: number; // 0..1 warm-wash intensity from flameModel
+  intensity: number; // 0..1 normalized fire strength from flameModel
   palette: Palette; // active flame's effective palette → wash + coal colors
   bottom?: number; // distance from scene bottom (defaults to the CSS 144px)
 }
 
-// One pulsing coal. Each gets a different delay so they shimmer out of sync.
-// `colorStyle` carries the palette-derived fill + glow from the parent.
-function Coal({ left, bottom, delay, hidden, colorStyle }: { left: number; bottom: number; delay: number; hidden: boolean; colorStyle: ViewStyle }) {
-  const pulse = useSharedValue(0.6);
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    if (hidden) {
-      cancelAnimation(pulse);
-      return;
-    }
-    if (reduced) {
-      pulse.value = 0.85; // steady glow, no pulsing (a11y)
-      return;
-    }
-    pulse.value = withDelay(
-      delay,
-      withRepeat(withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }), -1, true),
-    );
-    return () => cancelAnimation(pulse);
-  }, [pulse, delay, reduced, hidden]);
-  const style = useAnimatedStyle(() => ({
-    opacity: hidden ? 0 : pulse.value,
-    transform: [{ scale: 0.9 + pulse.value * 0.18 }],
-  }));
-  return <Animated.View style={[styles.coal, colorStyle, { left, bottom }, style]} />;
+interface LogSpec {
+  key: string;
+  width: number;
+  height: number;
+  bottom: number;
+  marginLeft: number;
+  rotate: string;
+  zIndex: number;
+  end: 'left' | 'right';
+}
+
+const LOGS: LogSpec[] = [
+  { key: 'l1', width: 196, height: 28, bottom: 12, marginLeft: -102, rotate: '-13deg', zIndex: 8, end: 'left' },
+  { key: 'l2', width: 196, height: 28, bottom: 19, marginLeft: -94, rotate: '11deg', zIndex: 9, end: 'right' },
+  { key: 'l3', width: 170, height: 27, bottom: 31, marginLeft: -85, rotate: '-5deg', zIndex: 10, end: 'right' },
+  { key: 'l4', width: 150, height: 26, bottom: 42, marginLeft: -75, rotate: '8deg', zIndex: 11, end: 'left' },
+];
+
+export const HEARTH_TOP_LOG_OFFSET = 47;
+
+export function logCountForStrength(strength: number): number {
+  // if (strength >= 8) return 4;
+  // if (strength >= 3) return 3;
+  return 2;
 }
 
 // One rising smoke wisp (out state only).
@@ -91,38 +92,84 @@ function Smoke({ left, dur, delay, drift, visible }: { left: number; dur: number
   return <Animated.View style={[styles.smoke, { left }, style]} />;
 }
 
-function Hearth({ fire, glow, palette, bottom = 144 }: HearthProps) {
+function SplitLog({
+  spec,
+  warmColors,
+  warmOpacity,
+  cold,
+}: {
+  spec: LogSpec;
+  warmColors: readonly [string, string, string];
+  warmOpacity: number;
+  cold: boolean;
+}) {
+  const endStyle = spec.end === 'left' ? styles.logEndLeft : styles.logEndRight;
+  return (
+    <View
+      testID="hearth-log"
+      style={[
+        styles.log,
+        {
+          width: spec.width,
+          height: spec.height,
+          bottom: spec.bottom,
+          marginLeft: spec.marginLeft,
+          borderRadius: spec.height / 2,
+          zIndex: spec.zIndex,
+          transform: [{ rotate: spec.rotate }],
+        },
+        cold && styles.logCold,
+      ]}>
+      <LinearGradient
+        colors={['#1a0f08', '#2a190e', '#4a2f1b', '#2a1a10', '#1c110a', '#100a05']}
+        locations={[0, 0.16, 0.4, 0.56, 0.8, 1]}
+        style={[StyleSheet.absoluteFill, { borderRadius: spec.height / 2 }]}
+      />
+      <View style={styles.splitLine} />
+      <View style={[styles.logEnd, endStyle]} />
+      <LinearGradient
+        colors={warmColors}
+        locations={[0, 0.52, 1]}
+        style={[
+          StyleSheet.absoluteFill,
+          { borderRadius: spec.height / 2, opacity: warmOpacity },
+        ]}
+      />
+    </View>
+  );
+}
+
+function Hearth({ fire, glow, intensity, palette, bottom = 144 }: HearthProps) {
   const isOut = fire.state === 'out';
+  const isLit = fire.state === 'lit';
+  const logCount = logCountForStrength(isLit ? fire.strength : 0);
 
   // Palette-derived colors (003 US2): the warm wash is the flame's ember tone
   // at half alpha; coals glow with the flame's core/ember. Memoized on the
   // palette so they recompute only on flame switch, never per frame.
-  const warmStyle = useMemo<ViewStyle>(
-    () => ({ backgroundColor: withAlpha(palette.ember, 0.5) }),
+  const warmColors = useMemo(
+    () =>
+      [
+        withAlpha(palette.gold, 0.58),
+        withAlpha(palette.ember, 0.22),
+        withAlpha(palette.red, 0),
+      ] as const,
     [palette],
   );
-  const coalStyle = useMemo<ViewStyle>(
-    () => ({ backgroundColor: palette.core, shadowColor: palette.ember }),
-    [palette],
-  );
+  const warmOpacity = isOut ? 0 : Math.min(1, glow * (0.72 + intensity * 0.28));
 
   return (
     <View style={[styles.hearth, { bottom }]} pointerEvents="none">
-      {/* warm wash on the logs (screen-like glow), fades with the fire */}
-      <View style={[styles.logWarm, warmStyle, { opacity: isOut ? 0 : glow }]} />
-
-      {/* two crossed logs */}
-      <View style={[styles.log, styles.logL1, isOut && styles.logCold]} />
-      <View style={[styles.log, styles.logL2, isOut && styles.logCold]} />
-
-      {/* glowing coals between the logs */}
-      <View style={styles.coals}>
-        <Coal left={12} bottom={4} delay={0} hidden={isOut} colorStyle={coalStyle} />
-        <Coal left={38} bottom={8} delay={600} hidden={isOut} colorStyle={coalStyle} />
-        <Coal left={62} bottom={3} delay={1100} hidden={isOut} colorStyle={coalStyle} />
-        <Coal left={50} bottom={10} delay={1600} hidden={isOut} colorStyle={coalStyle} />
-        <Coal left={24} bottom={11} delay={2000} hidden={isOut} colorStyle={coalStyle} />
-      </View>
+      {/* split hardwood logs; stronger current run stacks more fuel */}
+      {LOGS.slice(0, logCount).map(spec => (
+        <SplitLog
+          key={spec.key}
+          spec={spec}
+          warmColors={warmColors}
+          warmOpacity={warmOpacity}
+          cold={isOut}
+        />
+      ))}
 
       {/* smoke wisps only when the fire is out */}
       <View style={styles.smokeField}>
@@ -138,59 +185,45 @@ const styles = StyleSheet.create({
   hearth: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -100,
-    width: 200,
-    height: 70,
+    marginLeft: -120,
+    width: 240,
+    height: 120,
     zIndex: 8,
   },
   log: {
     position: 'absolute',
     left: '50%',
-    marginLeft: -75,
-    bottom: 8,
-    width: 150,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: '#241712',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(120,80,50,0.4)',
+    overflow: 'hidden',
+    backgroundColor: '#1c110a',
   },
-  logL1: { transform: [{ rotate: '-12deg' }] },
-  logL2: { bottom: 4, transform: [{ rotate: '11deg' }] },
-  logCold: { opacity: 0.62 },
-  // backgroundColor comes from the palette (warmStyle) — see Hearth body.
-  logWarm: {
+  logCold: { opacity: 0.62, borderTopColor: 'rgba(200,210,225,0.08)' },
+  splitLine: {
     position: 'absolute',
-    left: '50%',
-    marginLeft: -85,
-    bottom: 6,
-    width: 170,
-    height: 40,
-    borderRadius: 20,
+    left: 12,
+    right: 16,
+    top: '49%',
+    height: 1,
+    backgroundColor: 'rgba(255,225,180,0.18)',
   },
-  coals: {
+  logEnd: {
     position: 'absolute',
-    left: '50%',
-    marginLeft: -45,
-    bottom: 14,
-    width: 90,
-    height: 22,
+    top: '7%',
+    width: 23,
+    height: '86%',
+    borderRadius: 999,
+    backgroundColor: '#432a19',
+    borderWidth: 2,
+    borderColor: 'rgba(20,10,6,0.82)',
   },
-  // backgroundColor/shadowColor come from the palette (coalStyle) — see Hearth body.
-  coal: {
-    position: 'absolute',
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    shadowOpacity: 0.9,
-    shadowRadius: 4,
-  },
+  logEndLeft: { left: -2 },
+  logEndRight: { right: -2 },
   smokeField: {
     position: 'absolute',
     left: '50%',
-    bottom: 26,
+    bottom: 44,
     width: 1,
     height: 1,
+    zIndex: 20,
   },
   smoke: {
     position: 'absolute',

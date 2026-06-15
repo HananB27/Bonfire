@@ -43,7 +43,7 @@ Data describing how a flame should render beyond color, translated from `Bonfire
 - `particles`: ParticleProfile[].
 - `aura`: AuraProfile.
 - `accents`: AccentProfile[].
-- `footprint`: Optional profile scale multiplier, used by Inferno and Nebula in BonfireDesign.
+- `footprint`: Optional profile scale multiplier, used by Conflagration and Nebula in BonfireDesign.
 - `paletteIntent`: Optional profile palette flags such as opacity and inverted core.
 - `strengthResponse`: Optional StrengthResponse.
 - `designRef`: DesignReference labels from BonfireDesign.
@@ -113,7 +113,7 @@ Controls animated feel.
 - Motion must honor reduced-motion settings by freezing or minimizing animated loops as current flame
   rendering does.
 - Motion parameters must be interpreted generically and memoized where possible.
-- Smooth/harsh families and speed must preserve the designed identity: Sodium fast shimmer, Inferno
+- Smooth/harsh families and speed must preserve the designed identity: Sodium fast shimmer, Conflagration
   violent flicker, Ghostlight low-gravity drift, Aurora hue drift, Phoenix wing beat.
 
 ## ParticleProfile
@@ -237,7 +237,7 @@ Profile-specific visual response to existing fire strength.
 - Ember: squat, coal pulse, ash+sparks.
 - Spectral: layered ghosts, afterimage, motes.
 - Frostfire: crystal, crisp aura, shards.
-- Inferno: crown, footprint 1.3, shockPulse, dense sparks.
+- Conflagration: crown, footprint 1.3, shockPulse, dense sparks.
 - Solfire: solar, coreScale 1.7, circular aura, solarCircle, stars+motes.
 - Voidfire: inverted sharp, ring aura, voidRing, motes.
 - Aurora: ribbon, hue drift, auroraBand, wisps+motes.

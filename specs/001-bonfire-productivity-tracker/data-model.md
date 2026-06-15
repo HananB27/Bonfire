@@ -34,7 +34,7 @@ Computed from all Daily Entries + today's local date. Recomputed on every change
 | `state`    | `'unlit' \| 'lit' \| 'out'`   | `unlit` = never lit; `out` = was lit, then extinguished. |
 | `strength` | integer ≥ 0                   | Cumulative size of the current alive run (0 when not lit).|
 | `everLit`  | boolean                       | Whether any scored day exists (distinguishes unlit vs out).|
-| `label`    | `{ word, sub }`               | Caption from `fireLabel` (Spark/Kindling/Steady/Blazing/Roaring/Inferno, or Unlit/Out). |
+| `label`    | `{ word, sub }`               | Caption from `fireLabel` (Spark/Kindling/Steady/Blazing/Roaring/Conflagration, or Unlit/Out). |
 
 > The calendar colors each day cell from its **raw score** (heat ramp `heat[score]`) and renders
 > `score` pips — it does NOT need a per-day contribution map, so `FireState` deliberately omits one.

@@ -143,7 +143,7 @@ App.tsx                          # SafeArea + GestureHandlerRootView + BonfireSc
 src/
 ├── domain/
 │   ├── fire.ts                  # PURE engine (matches BonfireDesign/logic.js): computeFire, contribution,
-│   │                           #   classifyDay, fireLabel (Unlit/Out/Spark/Kindling/Steady/Blazing/Roaring/Inferno)
+│   │                           #   classifyDay, fireLabel (Unlit/Out/Spark/Kindling/Steady/Blazing/Roaring/Conflagration)
 │   └── dates.ts                 # local-date helpers (ymd/parse/addDays/diffDays/monthGrid)
 ├── data/
 │   ├── entriesStore.ts          # AsyncStorage: date→score map

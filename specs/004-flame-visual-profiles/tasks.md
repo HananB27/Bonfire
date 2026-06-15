@@ -55,12 +55,12 @@
 
 - [X] T014 [P] [US4] Add failing tests for required `visualProfile` sections, `source`, `designNumber`, `designTier`, `tagline`, and six non-empty `designRef` labels in `__tests__/flames.catalog.test.ts`
 - [X] T015 [P] [US4] Add failing tests for BonfireDesign order and identity coverage across all 20 existing flame ids in `__tests__/flames.catalog.test.ts`
-- [X] T016 [P] [US4] Add failing tests for BonfireDesign special traits: `inferno.footprint`, `nebula.footprint`, `solfire.shape.coreScale`, `ghostlight.paletteIntent.opacity`, `spectral.paletteIntent.opacity`, and `voidfire.paletteIntent.invert` in `__tests__/flames.catalog.test.ts`
+- [X] T016 [P] [US4] Add failing tests for BonfireDesign special traits: `conflagration.footprint`, `nebula.footprint`, `solfire.shape.coreScale`, `ghostlight.paletteIntent.opacity`, `spectral.paletteIntent.opacity`, and `voidfire.paletteIntent.invert` in `__tests__/flames.catalog.test.ts`
 
 ### Implementation for User Story 4
 
 - [X] T017 [US4] Add complete BonfireDesign `visualProfile` rows for Amber, Crimson, Sapphire, Sodium, Strontium, Emerald, Lilac, and Magenta in `src/domain/flames.ts`
-- [X] T018 [US4] Add complete BonfireDesign `visualProfile` rows for Ghostlight, Toxic, Wisp, Ember, Spectral, Frostfire, Inferno, and Solfire in `src/domain/flames.ts`
+- [X] T018 [US4] Add complete BonfireDesign `visualProfile` rows for Ghostlight, Toxic, Wisp, Ember, Spectral, Frostfire, Conflagration, and Solfire in `src/domain/flames.ts`
 - [X] T019 [US4] Add complete BonfireDesign `visualProfile` rows for Voidfire, Aurora, Phoenix, and Nebula in `src/domain/flames.ts`
 - [X] T020 [US4] Add all BonfireDesign `designRef` silhouette, core, aura, particles, motion, and implementation-intent labels to the 20 profile rows in `src/domain/flames.ts`
 - [X] T021 [US4] Add validation helper assertions that detect missing profile tokens and missing design labels in `__tests__/flames.catalog.test.ts`

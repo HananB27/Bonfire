@@ -3,7 +3,7 @@
  *
  * Mirrors `styles.css .fire-caption`. The word comes from the engine's
  * `fireLabel` (Unlit / Out / A spark / Kindling / Steady / Blazing / Roaring /
- * Inferno). The strength line shows only when the fire is lit. The whole caption
+ * Conflagration). The strength line shows only when the fire is lit. The whole caption
  * fades out as the calendar sheet rises (driven by the `lift` shared value).
  */
 

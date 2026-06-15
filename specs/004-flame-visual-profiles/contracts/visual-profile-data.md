@@ -104,7 +104,7 @@ The 20 existing flame ids must map to BonfireDesign identities:
 - `ember`: #12 rare, squat, coal pulse, ash+sparks.
 - `spectral`: #13 rare, layered ghosts, afterimage, motes.
 - `frostfire`: #14 rare, crystal, crisp aura, shards.
-- `inferno`: #15 rare, crown, footprint 1.3, shockPulse, dense sparks.
+- `conflagration`: #15 rare, crown, footprint 1.3, shockPulse, dense sparks.
 - `solfire`: #16 rare, solar, coreScale 1.7, circular aura, solarCircle, stars+motes.
 - `voidfire`: #17 rare, inverted sharp, ring aura, voidRing, motes.
 - `aurora`: #18 rare, ribbon, hue drift, auroraBand, wisps+motes.

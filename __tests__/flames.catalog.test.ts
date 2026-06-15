@@ -167,7 +167,7 @@ const EXPECTED: ExpectedProfile[] = [
   { id: 'ember', num: '12', tier: 'rare', variant: 'squat', edge: 'round', tongues: 1, auraKind: 'wide', auraDim: true, accents: [], particles: ['ash', 'sparks'], family: 'smooth', speed: 1.6, pulse: 'coal' },
   { id: 'spectral', num: '13', tier: 'rare', variant: 'layered', edge: 'round', tongues: 3, auraKind: 'oval', auraDim: true, accents: ['afterimage'], particles: ['motes'], family: 'smooth', speed: 1.4, opacity: 0.85 },
   { id: 'frostfire', num: '14', tier: 'rare', variant: 'crystal', edge: 'crystal', tongues: 3, auraKind: 'oval', auraCrisp: true, accents: [], particles: ['shards'], family: 'harsh', speed: 0.85 },
-  { id: 'inferno', num: '15', tier: 'rare', variant: 'crown', edge: 'round', tongues: 5, auraKind: 'wide', accents: ['shockPulse'], particles: ['sparks'], family: 'harsh', speed: 0.55, footprint: 1.3 },
+  { id: 'conflagration', num: '15', tier: 'rare', variant: 'crown', edge: 'round', tongues: 5, auraKind: 'wide', accents: ['shockPulse'], particles: ['sparks'], family: 'harsh', speed: 0.55, footprint: 1.3 },
   { id: 'solfire', num: '16', tier: 'rare', variant: 'solar', edge: 'round', tongues: 1, auraKind: 'circular', accents: ['solarCircle'], particles: ['stars', 'motes'], family: 'smooth', speed: 0.9, pulse: 'core', coreScale: 1.7 },
   { id: 'voidfire', num: '17', tier: 'rare', variant: 'inverted', edge: 'sharp', tongues: 1, auraKind: 'ring', accents: ['voidRing'], particles: ['motes'], family: 'smooth', speed: 1.2, invert: true },
   { id: 'aurora', num: '18', tier: 'rare', variant: 'ribbon', edge: 'round', tongues: 3, auraKind: 'wide', auraDim: true, accents: ['auroraBand'], particles: ['wisps', 'motes'], family: 'smooth', speed: 1.9, hueDrift: 14, ribbon: true },
@@ -236,7 +236,7 @@ describe('BonfireDesign profile parity (US4)', () => {
   });
 
   test('BonfireDesign special traits: footprints, core scale, opacity, inverted core', () => {
-    expect(flameById('inferno').visualProfile!.footprint).toBe(1.3);
+    expect(flameById('conflagration').visualProfile!.footprint).toBe(1.3);
     expect(flameById('nebula').visualProfile!.footprint).toBe(1.2);
     expect(flameById('solfire').visualProfile!.shape.coreScale).toBe(1.7);
     expect(flameById('ghostlight').visualProfile!.paletteIntent.opacity).toBe(0.55);
@@ -293,7 +293,7 @@ describe('visualProfile does not change existing catalog behavior (US5)', () => 
     ['magenta', 'runStrength', 7], ['ghostlight', 'runStrengthAndDays', 8],
     ['toxic', 'consecutivePerfect', 9], ['wisp', 'unbrokenChainMinScore', 10],
     ['ember', 'unbrokenChainMinScore', 11], ['spectral', 'crossStrength', 12],
-    ['frostfire', 'perfectCalendarWeek', 13], ['inferno', 'perfectCalendarWeek', 14],
+    ['frostfire', 'perfectCalendarWeek', 13], ['conflagration', 'perfectCalendarWeek', 14],
     ['solfire', 'crossStrength', 15], ['voidfire', 'unbrokenChain', 16],
     ['aurora', 'unbrokenChain', 17], ['phoenix', 'crossStrength', 18],
     ['nebula', 'consecutivePerfectWeeks', 19],

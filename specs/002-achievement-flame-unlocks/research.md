@@ -88,7 +88,7 @@ kind + numeric params. Kinds:
 | `consecutivePerfect` | `n` | time | Toxic(3) |
 | `unbrokenChainMinScore` | `n,min` | time | Wisp(5,≥3), Ember(10,≥3) |
 | `unbrokenChain` | `n` | time | Voidfire(14), Aurora(30) |
-| `perfectCalendarWeek` | `minScore` | time | Frostfire(any), Inferno(≥4) |
+| `perfectCalendarWeek` | `minScore` | time | Frostfire(any), Conflagration(≥4) |
 | `consecutivePerfectWeeks` | `weeks,minScore,minPerfect` | time | Nebula(2,≥4,10) |
 | `crossStrength` | `n` | time | Spectral(30), Solfire(100), Phoenix(150) |
 

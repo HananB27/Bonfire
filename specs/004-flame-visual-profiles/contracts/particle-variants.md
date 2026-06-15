@@ -8,7 +8,7 @@ one reusable animation pipeline and one shared clock. Particle profiles are deri
 
 ## Supported Variants
 
-- `sparks`: bright round sparks, Amber baseline, also Crimson/Sodium/Strontium/Inferno/Phoenix.
+- `sparks`: bright round sparks, Amber baseline, also Crimson/Sodium/Strontium/Conflagration/Phoenix.
 - `motes`: soft drifting points, used by Emerald/Spectral/Solfire/Voidfire/Aurora/Nebula.
 - `ash`: darker flecks, used by Ember/Phoenix.
 - `bubbles`: round translucent toxic bubbles, used by Toxic.

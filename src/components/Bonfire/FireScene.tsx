@@ -24,6 +24,7 @@ interface FireSceneProps {
   intensity: number;
   clock: SharedValue<number>;
   flameDim?: number;
+  flameVisibleBottomFromBottom?: number;
 }
 
 function FireScene({
@@ -35,6 +36,7 @@ function FireScene({
   intensity,
   clock,
   flameDim = 1,
+  flameVisibleBottomFromBottom,
 }: FireSceneProps) {
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
@@ -45,6 +47,7 @@ function FireScene({
         width={width}
         height={height}
         dim={flameDim}
+        visibleBottomFromBottom={flameVisibleBottomFromBottom}
         clock={clock}
       />
       <EmbersLayer

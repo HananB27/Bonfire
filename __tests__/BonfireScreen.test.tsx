@@ -10,7 +10,7 @@
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import BonfireScreen from '../src/screens/BonfireScreen';
+import BonfireScreen, { fireLayoutForWidth } from '../src/screens/BonfireScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { flameById } from '../src/domain/flames';
 
@@ -79,8 +79,36 @@ function allText(tree: ReactTestRenderer.ReactTestRenderer): string {
 test('starts unlit, and the swipe-up affordance is shown by default (US4)', async () => {
   const tree = await renderScreen();
   const text = allText(tree);
-  expect(text).toContain('tap a day to spark it'); // unlit caption
+  expect(text).toMatch(/tap a day to spark it/i); // unlit caption
   expect(text).toContain('swipe up to log'); // closed-sheet handle
+});
+
+test('fire layout keeps flame, logs, and caption on the same design anchor', () => {
+  const layout = fireLayoutForWidth(390);
+  expect(layout.flameVisibleBottomFromBottom).toBe(199);
+  expect(layout.hearthBottom).toBe(144);
+  expect(layout.captionBottom).toBe(92);
+
+  expect(layout.flameVisibleBottomFromBottom - layout.hearthBottom).toBe(55);
+  expect(layout.hearthBottom - layout.captionBottom).toBe(52);
+
+  expect(fireLayoutForWidth(320)).toEqual(layout);
+  expect(fireLayoutForWidth(480)).toEqual(layout);
+});
+
+test('flame canvas uses measured scene size for the same coordinate space as hearth', async () => {
+  const tree = await renderScreen();
+  const scene = tree.root.find(
+    n => typeof n.props.onLayout === 'function' && n.props.pointerEvents === 'none',
+  );
+
+  await act(async () => {
+    scene.props.onLayout({ nativeEvent: { layout: { width: 360, height: 720 } } });
+  });
+
+  const flame = findFlame(tree);
+  expect(flame.props.width).toBe(360);
+  expect(flame.props.height).toBe(720);
 });
 
 test('logging a 5 today lights the fire (US1)', async () => {
@@ -91,7 +119,7 @@ test('logging a 5 today lights the fire (US1)', async () => {
 
   const text = allText(tree);
   expect(text).toContain('KINDLING'); // strength 4 → Kindling (lit)
-  expect(text).not.toContain('tap a day to spark it');
+  expect(text).not.toMatch(/tap a day to spark it/i);
 });
 
 test('two consecutive missed days extinguish the fire (US2)', async () => {
@@ -105,7 +133,7 @@ test('two consecutive missed days extinguish the fire (US2)', async () => {
     await press(tree, 'Advance one day');
   }
 
-  expect(allText(tree)).toContain('two days missed'); // the "Out" caption
+  expect(allText(tree)).toMatch(/two days missed/i); // the "Out" caption
 });
 
 test('clearing the only scored day returns the fire to unlit (recompute)', async () => {
@@ -116,7 +144,7 @@ test('clearing the only scored day returns the fire to unlit (recompute)', async
   await press(tree, 'scored 4 out of 5'); // reopen today's (now scored) cell
   await press(tree, 'Clear this day'); // clear it
 
-  expect(allText(tree)).toContain('tap a day to spark it'); // unlit again
+  expect(allText(tree)).toMatch(/tap a day to spark it/i); // unlit again
 });
 
 test('autosaves a daily memory note and shows it again after reopening the day', async () => {
@@ -272,7 +300,7 @@ test('an equipped streak flame relocks when the fire goes out, then re-earns (US
 
   // Two consecutive missed past days extinguish the fire → Crimson relocks.
   for (let i = 0; i < 3; i++) await press(tree, 'Advance one day');
-  expect(allText(tree)).toContain('two days missed'); // fire is out
+  expect(allText(tree)).toMatch(/two days missed/i); // fire is out
   // The flame element is hidden while out (its fire prop says so).
   expect(findFlame(tree).props.fire.state).toBe('out');
 

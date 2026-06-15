@@ -31,7 +31,7 @@ Expected:
 2. Confirm all 20 ids exist and preserve BonfireDesign order/identity:
 
    - Amber, Crimson, Sapphire, Sodium, Strontium, Emerald, Lilac, Magenta
-   - Ghostlight, Toxic, Wisp, Ember, Spectral, Frostfire, Inferno, Solfire
+   - Ghostlight, Toxic, Wisp, Ember, Spectral, Frostfire, Conflagration, Solfire
    - Voidfire, Aurora, Phoenix, Nebula
 
 3. For each flame, verify:
@@ -47,7 +47,7 @@ Expected:
 
 4. Confirm rare flames preserve exotic BonfireDesign traits:
 
-   - Inferno crown + shock pulse.
+   - Conflagration crown + shock pulse.
    - Solfire oversized solar core + solar circle.
    - Voidfire dark inverted core + void rings.
    - Aurora ribbon lobes + hue drift + aurora band.
