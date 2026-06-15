@@ -18,6 +18,7 @@
 import React, { useEffect, useMemo } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, {
+  cancelAnimation,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -42,6 +43,10 @@ function Coal({ left, bottom, delay, hidden, colorStyle }: { left: number; botto
   const pulse = useSharedValue(0.6);
   const reduced = useReducedMotion();
   useEffect(() => {
+    if (hidden) {
+      cancelAnimation(pulse);
+      return;
+    }
     if (reduced) {
       pulse.value = 0.85; // steady glow, no pulsing (a11y)
       return;
@@ -50,7 +55,8 @@ function Coal({ left, bottom, delay, hidden, colorStyle }: { left: number; botto
       delay,
       withRepeat(withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }), -1, true),
     );
-  }, [pulse, delay, reduced]);
+    return () => cancelAnimation(pulse);
+  }, [pulse, delay, reduced, hidden]);
   const style = useAnimatedStyle(() => ({
     opacity: hidden ? 0 : pulse.value,
     transform: [{ scale: 0.9 + pulse.value * 0.18 }],
@@ -63,9 +69,14 @@ function Smoke({ left, dur, delay, drift, visible }: { left: number; dur: number
   const p = useSharedValue(0);
   const reduced = useReducedMotion();
   useEffect(() => {
-    if (reduced) return; // no drifting smoke when reduce-motion is on (a11y)
+    if (!visible || reduced) {
+      cancelAnimation(p);
+      p.value = 0;
+      return;
+    }
     p.value = withDelay(delay, withRepeat(withTiming(1, { duration: dur, easing: Easing.in(Easing.ease) }), -1, false));
-  }, [p, dur, delay, reduced]);
+    return () => cancelAnimation(p);
+  }, [p, dur, delay, reduced, visible]);
   const style = useAnimatedStyle(() => {
     const o = p.value < 0.2 ? p.value / 0.2 : (1 - p.value) / 0.8;
     return {

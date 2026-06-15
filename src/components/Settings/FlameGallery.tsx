@@ -54,7 +54,7 @@ function FlameGallery({
         <Pressable style={styles.panel} onPress={() => {}}>
           <View style={styles.grab} />
           <Text style={styles.title}>Flames</Text>
-          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody}>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollBody} removeClippedSubviews>
             {SECTIONS.map(section => {
               const flames = FLAMES.filter(f => f.tier === section.tier);
               if (flames.length === 0) return null;

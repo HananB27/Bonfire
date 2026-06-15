@@ -1,7 +1,7 @@
 /**
  * BonfireScreen.tsx — the app's single screen.
  *
- * Composes the full-screen fire scene (Flame + Embers + Hearth + FireCaption)
+ * Composes the full-screen fire scene (FireScene + Hearth + FireCaption)
  * with the swipe-up CalendarSheet on top and a top-right SettingsSheet. It wires
  * the data hooks (`useEntries`, `useSettings`) to the UI:
  *  - the calendar logs/clears a day's score → re-derives the fire → re-renders
@@ -23,8 +23,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
-import Flame from '../components/Bonfire/Flame';
-import Embers from '../components/Bonfire/Embers';
+import FireScene from '../components/Bonfire/FireScene';
 import Hearth from '../components/Bonfire/Hearth';
 import FireCaption from '../components/Bonfire/FireCaption';
 import { flameVisual } from '../components/Bonfire/flameModel';
@@ -112,25 +111,16 @@ function BonfireScreen() {
           flame (shape/motion/aura/accents) and embers (particle mix); palette +
           dim still control color/energy, so embered behavior is unchanged. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Flame
+        <FireScene
           fire={fire}
           activeStyle={activeStyle}
           palette={effectivePalette}
           width={width}
           height={height}
-          dim={dim}
+          flameDim={dim}
+          intensity={visual.intensity}
           clock={sceneClock}
         />
-        <View style={StyleSheet.absoluteFill}>
-          <Embers
-            width={width}
-            height={height}
-            intensity={visual.intensity}
-            palette={effectivePalette}
-            activeStyle={activeStyle}
-            clock={sceneClock}
-          />
-        </View>
         <Hearth fire={fire} glow={visual.glow} palette={effectivePalette} />
         <FireCaption fire={fire} lift={progress} />
       </View>

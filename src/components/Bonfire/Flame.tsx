@@ -70,7 +70,7 @@ import {
   type TongueDescriptor,
 } from './flameModel';
 
-interface FlameProps {
+export interface FlameProps {
   fire: FireState;
   // The active catalog flame; its BonfireDesign visualProfile drives the shape,
   // motion, aura, and accents. Missing/invalid profiles fall back to Amber-like.
@@ -434,7 +434,7 @@ function AuroraBand({ clock, cx, baseY, fh, colors }: {
   );
 }
 
-function Flame({ fire, activeStyle, palette, width, height, clock, dim = 1 }: FlameProps) {
+export function FlameLayer({ fire, activeStyle, palette, width, height, clock, dim = 1 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
   // ---- Resolve the BonfireDesign profile into plain render descriptors ----
@@ -578,121 +578,127 @@ function Flame({ fire, activeStyle, palette, width, height, clock, dim = 1 }: Fl
   const groundH = 80 + fh * 0.5;
 
   return (
-    <Canvas style={{ width, height }} pointerEvents="none">
-      <Group opacity={flameOpacity} transform={flameTransform}>
-        {/* ---- ground glow (warm pool of light on the ground) ---- */}
-        <Group
-          opacity={glow}
-          transform={[
-            { translateX: cx },
-            { translateY: baseY - 0 },
-            { scaleX: groundW / 200 },
-            { scaleY: groundH / 200 },
-          ]}
-          layer={
-            <Paint>
-              <Blur blur={8} />
-            </Paint>
-          }>
-          <Circle c={vec(0, 0)} r={100}>
-            <RadialGradient
-              c={vec(0, 0)}
-              r={100}
-              colors={stops.ground}
-              positions={[0, 0.38, 0.72]}
-            />
-          </Circle>
-        </Group>
+    <Group opacity={flameOpacity} transform={flameTransform}>
+      {/* ---- ground glow (warm pool of light on the ground) ---- */}
+      <Group
+        opacity={glow}
+        transform={[
+          { translateX: cx },
+          { translateY: baseY - 0 },
+          { scaleX: groundW / 200 },
+          { scaleY: groundH / 200 },
+        ]}
+        layer={
+          <Paint>
+            <Blur blur={8} />
+          </Paint>
+        }>
+        <Circle c={vec(0, 0)} r={100}>
+          <RadialGradient
+            c={vec(0, 0)}
+            r={100}
+            colors={stops.ground}
+            positions={[0, 0.38, 0.72]}
+          />
+        </Circle>
+      </Group>
 
-        {/* ---- aura (profile-shaped glow behind the flame) ---- */}
-        <Group
-          opacity={glow}
-          transform={[
-            { translateX: cx },
-            { translateY: baseY - haloH * 0.3 },
-            { scaleX: haloW / 200 },
-            { scaleY: haloH / 200 },
-          ]}
-          layer={
-            <Paint>
-              <Blur blur={aura.blur} />
-            </Paint>
-          }>
-          <Circle c={vec(0, 0)} r={100}>
-            <RadialGradient
-              c={vec(0, 0)}
-              r={100}
-              colors={stops.halo}
-              positions={stops.haloPositions}
-            />
-          </Circle>
-        </Group>
+      {/* ---- aura (profile-shaped glow behind the flame) ---- */}
+      <Group
+        opacity={glow}
+        transform={[
+          { translateX: cx },
+          { translateY: baseY - haloH * 0.3 },
+          { scaleX: haloW / 200 },
+          { scaleY: haloH / 200 },
+        ]}
+        layer={
+          <Paint>
+            <Blur blur={aura.blur} />
+          </Paint>
+        }>
+        <Circle c={vec(0, 0)} r={100}>
+          <RadialGradient
+            c={vec(0, 0)}
+            r={100}
+            colors={stops.halo}
+            positions={stops.haloPositions}
+          />
+        </Circle>
+      </Group>
 
-        {/* ---- behind-the-flame accents (profile data only, never flame id) ---- */}
-        {accents.includes('auroraBand') && (
-          <AuroraBand clock={clock} cx={cx} baseY={baseY} fh={fh} colors={stops.band} />
-        )}
-        {accents.includes('shockPulse') && (
-          <ShockPulse clock={clock} cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
-        )}
-        {accents.includes('solarCircle') && (
-          <SolarCircle cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
-        )}
+      {/* ---- behind-the-flame accents (profile data only, never flame id) ---- */}
+      {accents.includes('auroraBand') && (
+        <AuroraBand clock={clock} cx={cx} baseY={baseY} fh={fh} colors={stops.band} />
+      )}
+      {accents.includes('shockPulse') && (
+        <ShockPulse clock={clock} cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
+      )}
+      {accents.includes('solarCircle') && (
+        <SolarCircle cx={cx} baseY={baseY} fh={fh} color={stops.accentSoft} />
+      )}
 
-        {/* ---- the flame: profile tongues, additive (screen) + brightness +
-                optional hue drift. Each tongue is a BonfireDesign 4-layer stack;
-                `afterimage` ghosts are the profile's own ghost tongues. ---- */}
+      {/* ---- the flame: profile tongues, additive (screen) + brightness +
+              optional hue drift. Each tongue is a BonfireDesign 4-layer stack;
+              `afterimage` ghosts are the profile's own ghost tongues. ---- */}
+      <Group
+        layer={
+          <Paint>
+            <ColorMatrix matrix={brightPaint} />
+          </Paint>
+        }>
         <Group
+          opacity={tonguesOpacity}
           layer={
-            <Paint>
-              <ColorMatrix matrix={brightPaint} />
-            </Paint>
+            motion.hueDriftMs > 0 ? (
+              <Paint>
+                <ColorMatrix matrix={hueDriftMatrix} />
+              </Paint>
+            ) : undefined
           }>
-          <Group
-            opacity={tonguesOpacity}
-            layer={
-              motion.hueDriftMs > 0 ? (
-                <Paint>
-                  <ColorMatrix matrix={hueDriftMatrix} />
-                </Paint>
-              ) : undefined
-            }>
-            <Group blendMode="screen">
-              {shape.tongues.map((tongue, i) => (
-                <Tongue
-                  key={i}
-                  tongue={tongue}
-                  motion={motion}
-                  motionScale={Math.min(strength.motion, 1.3)}
-                  paths={paths}
-                  stops={stops}
-                  palette={palette}
-                  invertCore={shape.invertCore}
-                  coreScale={shape.coreScale}
-                  fh={fh}
-                  cx={cx}
-                  baseY={baseY}
-                  clock={clock}
-                />
-              ))}
-            </Group>
+          <Group blendMode="screen">
+            {shape.tongues.map((tongue, i) => (
+              <Tongue
+                key={i}
+                tongue={tongue}
+                motion={motion}
+                motionScale={Math.min(strength.motion, 1.3)}
+                paths={paths}
+                stops={stops}
+                palette={palette}
+                invertCore={shape.invertCore}
+                coreScale={shape.coreScale}
+                fh={fh}
+                cx={cx}
+                baseY={baseY}
+                clock={clock}
+              />
+            ))}
           </Group>
         </Group>
-
-        {/* ---- orbiting accents drawn over the flame ---- */}
-        {accents.includes('orbitRing') && (
-          <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
-            color={stops.accent} periodMs={7500} />
-        )}
-        {accents.includes('voidRing') && (
-          <>
-            <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
-              color={stops.accent} periodMs={9000} />
-            <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
-              color={stops.accentSoft} periodMs={14000} big reverse />
-          </>
-        )}
       </Group>
+
+      {/* ---- orbiting accents drawn over the flame ---- */}
+      {accents.includes('orbitRing') && (
+        <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+          color={stops.accent} periodMs={7500} />
+      )}
+      {accents.includes('voidRing') && (
+        <>
+          <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+            color={stops.accent} periodMs={9000} />
+          <OrbitRing clock={clock} cx={cx} baseY={baseY} fh={fh}
+            color={stops.accentSoft} periodMs={14000} big reverse />
+        </>
+      )}
+    </Group>
+  );
+}
+
+function Flame(props: FlameProps) {
+  return (
+    <Canvas style={{ width: props.width, height: props.height }} pointerEvents="none">
+      <FlameLayer {...props} />
     </Canvas>
   );
 }

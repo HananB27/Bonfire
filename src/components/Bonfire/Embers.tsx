@@ -28,7 +28,7 @@ import type { FlameStyle, ParticleKind } from '../../domain/flames';
 import { withAlpha, type Palette } from '../../theme/palettes';
 import { resolveParticleDescriptors, resolveVisualProfile, type ParticleDescriptor } from './flameModel';
 
-interface EmbersProps {
+export interface EmbersProps {
   width: number;
   height: number;
   intensity: number; // 0..1 (0 = not lit → no fire particles)
@@ -316,7 +316,7 @@ function ProfileParticle({ kind, seed, clock, width, baseY, color, bright }: {
   );
 }
 
-function Embers({ width, height, intensity, palette, activeStyle, clock }: EmbersProps) {
+export function EmbersLayer({ width, height, intensity, palette, activeStyle, clock }: EmbersProps) {
   const baseY = height - 150; // just above the logs (matches the flame base)
   const showProfileParticles = intensity > 0;
 
@@ -338,7 +338,7 @@ function Embers({ width, height, intensity, palette, activeStyle, clock }: Ember
   }, [activeStyle, width, height, showProfileParticles]);
 
   return (
-    <Canvas style={{ width, height }} pointerEvents="none">
+    <>
       {/* ambient motes — always faintly drifting up */}
       {bgSeeds.map((seed, i) => (
         <ProfileParticle
@@ -368,6 +368,14 @@ function Embers({ width, height, intensity, palette, activeStyle, clock }: Ember
           />
         )),
       )}
+    </>
+  );
+}
+
+function Embers(props: EmbersProps) {
+  return (
+    <Canvas style={{ width: props.width, height: props.height }} pointerEvents="none">
+      <EmbersLayer {...props} />
     </Canvas>
   );
 }
