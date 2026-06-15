@@ -13,9 +13,10 @@
  *   accents      → shockPulse / solarCircle / orbitRing / voidRing / auroraBand,
  *                  selected purely by profile data (never by flame id)
  *   N tongues    → each profile tongue is the BonfireDesign 4-layer stack
- *                  (base/mid/inner/core teardrops with their own vertical
- *                  LinearGradient + Blur), positioned by its dx/fy/rot/sx/sy
- *                  transform and composited with BlendMode.Screen
+ *                  (base/mid/inner/core teardrops). Canonical layers are
+ *                  rasterized once per palette/shape into alpha-safe image
+ *                  textures, then positioned by each tongue's dx/fy/rot/sx/sy
+ *                  transform and screen-composited.
  *
  * Animation runs on the UI thread via a shared clock (so it holds the display
  * refresh rate, ≥120 FPS, even while JS is busy). Each tongue flickers with the
@@ -32,6 +33,7 @@
 import React, { useEffect, useMemo } from 'react';
 import {
   Canvas,
+  Image,
   Group,
   Path,
   Skia,
@@ -43,8 +45,11 @@ import {
   Circle,
   Oval,
   Rect,
+  PaintStyle,
+  TileMode,
   rect,
   vec,
+  type SkImage,
 } from '@shopify/react-native-skia';
 import {
   useDerivedValue,
@@ -101,6 +106,14 @@ const LAYER_RIG = [
 ] as const;
 type LayerName = (typeof LAYER_RIG)[number]['name'];
 
+interface LayerTexture {
+  image: SkImage | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
  * Build one flame layer outline as a Skia path. The `edge` treatment maps the
  * BonfireDesign `edge-*` clip-paths to path families:
@@ -142,6 +155,97 @@ function tonguePath(cx: number, baseY: number, w: number, h: number, edge: strin
       `C ${cx - hw} ${top + h * 0.82} ${cx - hw * 0.9} ${top + h * 0.45} ${cx} ${top} Z`;
   }
   return Skia.Path.MakeFromSVGString(d) ?? Skia.Path.Make();
+}
+
+function layerGradient(
+  layer: (typeof LAYER_RIG)[number],
+  stops: Record<'base' | 'mid', string[]>,
+  palette: Palette,
+  invertCore: boolean,
+  coreScale: number,
+  fh: number,
+) {
+  const sc = layer.name === 'core' ? coreScale : 1;
+  const lh = fh * layer.h * sc;
+  const colors =
+    layer.name === 'base' ? stops.base
+    : layer.name === 'mid' ? stops.mid
+    : layer.name === 'inner' ? [palette.ember, palette.amber, palette.gold]
+    : invertCore
+      // Voidfire: the core flips to a near-black void wrapped in light.
+      ? [darken(palette.red, 0.35), darken(palette.red, 0.12)]
+      : [palette.amber, palette.gold, palette.core];
+  const positions =
+    layer.name === 'base' ? [0, 0.22, 0.7, 1]
+    : layer.name === 'mid' ? [0, 0.35, 0.8, 1]
+    : colors.length === 2 ? [0, 1]
+    : [0, 0.45, 0.88];
+  return { colors, positions, lh };
+}
+
+function makeLayerTexture(
+  layer: (typeof LAYER_RIG)[number],
+  path: ReturnType<typeof tonguePath>,
+  stops: Record<'base' | 'mid', string[]>,
+  palette: Palette,
+  invertCore: boolean,
+  coreScale: number,
+  fh: number,
+  cx: number,
+  baseY: number,
+): LayerTexture | null {
+  if (
+    typeof Skia.Surface?.Make !== 'function' ||
+    typeof Skia.Paint !== 'function' ||
+    typeof Skia.Shader?.MakeLinearGradient !== 'function' ||
+    typeof Skia.ImageFilter?.MakeBlur !== 'function'
+  ) {
+    return null;
+  }
+
+  const bounds = path.computeTightBounds();
+  const pad = Math.ceil(layer.blur * 4 + 2);
+  const x = Math.floor(bounds.x - pad);
+  const y = Math.floor(bounds.y - pad);
+  const width = Math.max(1, Math.ceil(bounds.width + pad * 2));
+  const height = Math.max(1, Math.ceil(bounds.height + pad * 2));
+  // Use CPU surface here: RN Skia documents it as 8888 + unpremul alpha.
+  // Android GPU offscreen surfaces can snapshot opaque black padding.
+  const surface = Skia.Surface.Make(width, height);
+  if (!surface) return null;
+
+  try {
+    const canvas = surface.getCanvas();
+    // GPU offscreen surfaces may start with opaque/undefined pixels on Android.
+    // Clear first so the cached layer keeps the same transparent bounds as Path.
+    canvas.clear(Skia.Color('rgba(0, 0, 0, 0)'));
+
+    const localPath = path.copy().offset(-x, -y);
+    const { colors, positions, lh } = layerGradient(layer, stops, palette, invertCore, coreScale, fh);
+    const paint = Skia.Paint();
+    paint.setAntiAlias(true);
+    paint.setStyle(PaintStyle.Fill);
+    paint.setShader(
+      Skia.Shader.MakeLinearGradient(
+        Skia.Point(cx - x, baseY - y),
+        Skia.Point(cx - x, baseY - y - lh),
+        colors.map(color => Skia.Color(color)),
+        positions,
+        TileMode.Clamp,
+      ),
+    );
+
+    const blurPaint = Skia.Paint();
+    blurPaint.setImageFilter(Skia.ImageFilter.MakeBlur(layer.blur, layer.blur, TileMode.Decal, null));
+    canvas.saveLayer(blurPaint, rect(0, 0, width, height));
+    canvas.drawPath(localPath, paint);
+    canvas.restore();
+    surface.flush();
+    const image = surface.makeImageSnapshot();
+    return { image, x, y, width, height };
+  } finally {
+    surface.dispose();
+  }
 }
 
 // A 4×5 color matrix that multiplies R/G/B by `b` (brightness), keeps alpha.
@@ -236,6 +340,7 @@ interface TongueProps {
   motion: MotionDescriptor;
   motionScale: number;
   paths: Record<LayerName, ReturnType<typeof tonguePath>>;
+  textures: Record<LayerName, LayerTexture | null>;
   stops: Record<'base' | 'mid', string[]>;
   palette: Palette;
   invertCore: boolean;
@@ -247,7 +352,7 @@ interface TongueProps {
 }
 
 function Tongue({
-  tongue, motion, motionScale, paths, stops, palette, invertCore, coreScale,
+  tongue, motion, motionScale, paths, textures, stops, palette, invertCore, coreScale,
   fh, cx, baseY, clock,
 }: TongueProps) {
   const flickT = useDerivedValue(() =>
@@ -287,22 +392,23 @@ function Tongue({
     <Group opacity={opacity} transform={placement}>
       <Group transform={flickT}>
         {layers.map(layer => {
-          const sc = layer.name === 'core' ? coreScale : 1;
-          const lh = fh * layer.h * sc;
-          // Gradient stop sets translated from the BonfireDesign layer grads.
-          const colors =
-            layer.name === 'base' ? stops.base
-            : layer.name === 'mid' ? stops.mid
-            : layer.name === 'inner' ? [palette.ember, palette.amber, palette.gold]
-            : invertCore
-              // Voidfire: the core flips to a near-black void wrapped in light.
-              ? [darken(palette.red, 0.35), darken(palette.red, 0.12)]
-              : [palette.amber, palette.gold, palette.core];
-          const positions =
-            layer.name === 'base' ? [0, 0.22, 0.7, 1]
-            : layer.name === 'mid' ? [0, 0.35, 0.8, 1]
-            : colors.length === 2 ? [0, 1]
-            : [0, 0.45, 0.88];
+          const { colors, positions, lh } = layerGradient(layer, stops, palette, invertCore, coreScale, fh);
+          const texture = textures[layer.name];
+          if (texture?.image) {
+            return (
+              <Image
+                key={layer.name}
+                image={texture.image}
+                x={texture.x}
+                y={texture.y}
+                width={texture.width}
+                height={texture.height}
+                fit="fill"
+                blendMode={layer.name === 'core' && invertCore ? 'srcOver' : undefined}
+                opacity={layer.name === 'core' ? corePulse : undefined}
+              />
+            );
+          }
           const path = (
             <Path
               path={paths[layer.name]}
@@ -571,6 +677,34 @@ export function FlameLayer({ fire, activeStyle, palette, width, height, clock, d
     [palette, aura.ring],
   );
 
+  const textures = useMemo((): Record<LayerName, LayerTexture | null> => {
+    const make = (layer: (typeof LAYER_RIG)[number]) => {
+      try {
+        return makeLayerTexture(layer, paths[layer.name], stops, palette, shape.invertCore, shape.coreScale, fh, cx, baseY);
+      } catch {
+        return null;
+      }
+    };
+    return {
+      base: make(LAYER_RIG[0]),
+      mid: make(LAYER_RIG[1]),
+      inner: make(LAYER_RIG[2]),
+      core: make(LAYER_RIG[3]),
+    };
+  }, [paths, stops, palette, shape.invertCore, shape.coreScale, fh, cx, baseY]);
+
+  useEffect(() => {
+    return () => {
+      const disposed = new Set<SkImage>();
+      Object.values(textures).forEach(texture => {
+        if (texture?.image && !disposed.has(texture.image)) {
+          texture.image.dispose();
+          disposed.add(texture.image);
+        }
+      });
+    };
+  }, [textures]);
+
   // Aura sizing: the baseline oval halo scaled by the profile's aura geometry.
   const haloW = (160 + fh * 2.2) * aura.widthScale;
   const haloH = (200 + fh * 2.6) * aura.heightScale;
@@ -664,6 +798,7 @@ export function FlameLayer({ fire, activeStyle, palette, width, height, clock, d
                 motion={motion}
                 motionScale={Math.min(strength.motion, 1.3)}
                 paths={paths}
+                textures={textures}
                 stops={stops}
                 palette={palette}
                 invertCore={shape.invertCore}
