@@ -86,9 +86,10 @@ interface FlameProps {
   dim?: number;
 }
 
-// Distance (px) from the bottom of the canvas to the flame's base, mirroring the
-// CSS `.fire { bottom: 170px }` so the flame sits just above the logs.
-const BASE_FROM_BOTTOM = 170;
+// Distance (px) from the bottom of the canvas to the flame's base. The flame
+// path has a small rounded foot below this point, so keep the base above the log
+// tops to avoid the body rendering underneath the hearth.
+const BASE_FROM_BOTTOM = 216;
 
 // The BonfireDesign 4-layer tongue rig: [name, width×fh, height×fh, blur].
 // Soft tongues (Wisp fragments) draw only mid+inner — no deep base, no hot core.

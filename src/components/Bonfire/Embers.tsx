@@ -318,6 +318,7 @@ function ProfileParticle({ kind, seed, clock, width, baseY, color, bright }: {
 
 function Embers({ width, height, intensity, palette, activeStyle, clock }: EmbersProps) {
   const baseY = height - 150; // just above the logs (matches the flame base)
+  const showProfileParticles = intensity > 0;
 
   // Ambient pool: constant count, deterministic, independent of the profile.
   const bgSeeds = useMemo(() => makeAmbientSeeds(14, height), [height]);
@@ -325,15 +326,16 @@ function Embers({ width, height, intensity, palette, activeStyle, clock }: Ember
   // Profile pools: one bounded population per descriptor in the active flame's
   // BonfireDesign particle mix (multi-variant mixes like Phoenix sparks+ash
   // become multiple pools). Memoized on profile + dimensions: a flame switch
-  // rebuilds pools once; re-renders and the clock never regenerate seeds.
+  // rebuilds pools once; re-renders, clock ticks, and strength/intensity changes
+  // never regenerate seeds or remount particles.
   const profileParticles = useMemo(() => {
-    if (intensity <= 0) return [];
+    if (!showProfileParticles) return [];
     const descriptors = resolveParticleDescriptors(resolveVisualProfile(activeStyle));
     return descriptors.map((d, i) => ({
       descriptor: d,
       seeds: makeProfileSeeds(d, i, width, height * 0.55),
     }));
-  }, [activeStyle, width, height, intensity]);
+  }, [activeStyle, width, height, showProfileParticles]);
 
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
