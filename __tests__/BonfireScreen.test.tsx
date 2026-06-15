@@ -9,6 +9,7 @@
 
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
+import { AppState } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BonfireScreen, { fireLayoutForWidth } from '../src/screens/BonfireScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +42,7 @@ afterEach(() => {
     rendered?.unmount();
   });
   rendered = null;
+  jest.restoreAllMocks();
 });
 
 beforeEach(async () => {
@@ -76,6 +78,19 @@ function allText(tree: ReactTestRenderer.ReactTestRenderer): string {
   return out.join('');
 }
 
+function jsonByTestId(
+  node: ReactTestRenderer.ReactTestRendererJSON | string | null,
+  testID: string,
+): ReactTestRenderer.ReactTestRendererJSON | undefined {
+  if (node == null || typeof node === 'string') return undefined;
+  if (node.props.testID === testID) return node;
+  for (const child of node.children ?? []) {
+    const match = jsonByTestId(child, testID);
+    if (match) return match;
+  }
+  return undefined;
+}
+
 test('starts unlit, and the swipe-up affordance is shown by default (US4)', async () => {
   const tree = await renderScreen();
   const text = allText(tree);
@@ -109,6 +124,42 @@ test('flame canvas uses measured scene size for the same coordinate space as hea
   const flame = findFlame(tree);
   expect(flame.props.width).toBe(360);
   expect(flame.props.height).toBe(720);
+});
+
+test('atmosphere renders behind the fire scene and leaves flame prominence unchanged', async () => {
+  const tree = await renderScreen();
+  const json = tree.toJSON();
+  const screen = jsonByTestId(Array.isArray(json) ? json[0] : json, 'bonfire-screen');
+  const flame = findFlame(tree);
+
+  expect(screen?.children?.[0]).toMatchObject({ props: { testID: 'bonfire-atmosphere' } });
+  expect(flame.props.dim).toBe(1);
+});
+
+test('atmosphere refreshes on app focus without mutating fire state', async () => {
+  let onAppStateChange: ((state: string) => void) | undefined;
+  const remove = jest.fn();
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, handler) => {
+    onAppStateChange = handler;
+    return { remove };
+  });
+
+  const tree = await renderScreen();
+  const fireBefore = findFlame(tree).props.fire;
+
+  await act(async () => {
+    onAppStateChange?.('background');
+  });
+  expect(tree.root.findByProps({ testID: 'bonfire-atmosphere' }).props.nativeID).toContain('-open-');
+
+  await act(async () => {
+    onAppStateChange?.('active');
+  });
+
+  expect(tree.root.findByProps({ testID: 'bonfire-atmosphere' }).props.nativeID).toContain(
+    '-focus-',
+  );
+  expect(findFlame(tree).props.fire).toBe(fireBefore);
 });
 
 test('logging a 5 today lights the fire (US1)', async () => {

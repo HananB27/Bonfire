@@ -20,6 +20,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  AppState,
   Pressable,
   StyleSheet,
   Text,
@@ -28,21 +29,22 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import Atmosphere from '../components/Bonfire/Atmosphere';
 import FireScene from '../components/Bonfire/FireScene';
 import Hearth, { HEARTH_TOP_LOG_OFFSET } from '../components/Bonfire/Hearth';
 import FireCaption from '../components/Bonfire/FireCaption';
 import { flameVisual } from '../components/Bonfire/flameModel';
 import CalendarSheet from '../components/Calendar/CalendarSheet';
 import SettingsSheet from '../components/Settings/SettingsSheet';
+import { deriveAtmosphere } from '../domain/atmosphere';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
 import type { FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
 import { useDayNotes } from '../hooks/useDayNotes';
 import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
-import { bg0, bg1, gold, inkDim } from '../theme/tokens';
+import { bg0, gold, inkDim } from '../theme/tokens';
 
 const DESIGN_HEARTH_BOTTOM = 144;
 const DESIGN_CAPTION_BOTTOM = 92;
@@ -61,6 +63,7 @@ function BonfireScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const [sceneSize, setSceneSize] = useState({ width, height });
+  const [atmosphere, setAtmosphere] = useState(() => deriveAtmosphere());
 
   // The "real" today is fixed per session; dev offset simulates days passing.
   const realToday = useMemo(() => todayKey(), []);
@@ -126,6 +129,19 @@ function BonfireScreen() {
     sceneFrame.setActive(!reducedMotion);
   }, [reducedMotion, sceneFrame]);
 
+  // Refresh the derived sky only when the app becomes active. This keeps the
+  // atmosphere aligned with local time without adding timers or per-frame work.
+  useEffect(() => {
+    const refreshAtmosphere = () => {
+      setAtmosphere(deriveAtmosphere({ mode: 'focus' }));
+    };
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') refreshAtmosphere();
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   const ready = entriesReady && notesReady && settingsReady;
 
   // Loading: a plain dark screen until both stores load (FR-015).
@@ -134,14 +150,8 @@ function BonfireScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      {/* night background: vertical navy gradient + a soft top sky glow */}
-      <LinearGradient colors={[bg1, bg0]} style={StyleSheet.absoluteFill} />
-      <LinearGradient
-        colors={['rgba(40,58,110,0.35)', 'transparent']}
-        style={styles.skyGlow}
-        pointerEvents="none"
-      />
+    <View testID="bonfire-screen" style={styles.screen}>
+      <Atmosphere state={atmosphere} />
 
       {/* the fire scene (GPU flame + embers, then hearth + caption on top).
           Out-state precedence (US2): `Flame` hides itself whenever the fire is
@@ -157,6 +167,7 @@ function BonfireScreen() {
           glow={visual.glow}
           intensity={visual.intensity}
           palette={effectivePalette}
+          atmosphere={atmosphere}
           bottom={fireLayout.hearthBottom}
         />
         <FireScene
@@ -225,7 +236,6 @@ function BonfireScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: bg0 },
   loading: { backgroundColor: bg0 },
-  skyGlow: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%' },
   dev: {
     position: 'absolute',
     left: 14,

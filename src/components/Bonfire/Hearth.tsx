@@ -29,6 +29,7 @@ import Animated, {
   withDelay,
 } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
+import type { AtmosphericState } from '../../domain/atmosphere';
 import { withAlpha, type Palette } from '../../theme/palettes';
 
 interface HearthProps {
@@ -36,6 +37,7 @@ interface HearthProps {
   glow: number; // 0..1 warm-wash intensity from flameModel
   intensity: number; // 0..1 normalized fire strength from flameModel
   palette: Palette; // active flame's effective palette → wash + coal colors
+  atmosphere: Pick<AtmosphericState, 'phase' | 'brightness'>; // adapts wood tone to the sky
   bottom?: number; // distance from scene bottom (defaults to the CSS 144px)
 }
 
@@ -63,6 +65,25 @@ export function logCountForStrength(strength: number): number {
   // if (strength >= 8) return 4;
   // if (strength >= 3) return 3;
   return 2;
+}
+
+type LogGradientColors = readonly [string, string, string, string, string, string];
+
+export function logColorsForAtmosphere(
+  atmosphere: Pick<AtmosphericState, 'phase' | 'brightness'>,
+): LogGradientColors {
+  switch (atmosphere.phase) {
+    case 'morning':
+      return ['#2c1a0f', '#4a2e1a', '#765233', '#5a3922', '#392317', '#24140c'];
+    case 'day':
+      return ['#302015', '#573923', '#88613c', '#654329', '#422a1b', '#28180f'];
+    case 'dusk':
+      return ['#22140c', '#382214', '#644122', '#472b1a', '#2d1b12', '#1b100a'];
+    case 'night':
+      return atmosphere.brightness > 0.22
+        ? ['#1e120b', '#302014', '#51361f', '#382417', '#24160e', '#160d08']
+        : ['#1a100a', '#2b1b10', '#4a2f1b', '#321f13', '#20130c', '#140c07'];
+  }
 }
 
 // One rising smoke wisp (out state only).
@@ -94,11 +115,13 @@ function Smoke({ left, dur, delay, drift, visible }: { left: number; dur: number
 
 function SplitLog({
   spec,
+  woodColors,
   warmColors,
   warmOpacity,
   cold,
 }: {
   spec: LogSpec;
+  woodColors: LogGradientColors;
   warmColors: readonly [string, string, string];
   warmOpacity: number;
   cold: boolean;
@@ -121,7 +144,8 @@ function SplitLog({
         cold && styles.logCold,
       ]}>
       <LinearGradient
-        colors={['#1a0f08', '#2a190e', '#4a2f1b', '#2a1a10', '#1c110a', '#100a05']}
+        testID="hearth-log-base"
+        colors={woodColors}
         locations={[0, 0.16, 0.4, 0.56, 0.8, 1]}
         style={[StyleSheet.absoluteFill, { borderRadius: spec.height / 2 }]}
       />
@@ -139,10 +163,11 @@ function SplitLog({
   );
 }
 
-function Hearth({ fire, glow, intensity, palette, bottom = 144 }: HearthProps) {
+function Hearth({ fire, glow, intensity, palette, atmosphere, bottom = 144 }: HearthProps) {
   const isOut = fire.state === 'out';
   const isLit = fire.state === 'lit';
   const logCount = logCountForStrength(isLit ? fire.strength : 0);
+  const woodColors = useMemo(() => logColorsForAtmosphere(atmosphere), [atmosphere]);
 
   // Palette-derived colors (003 US2): the warm wash is the flame's ember tone
   // at half alpha; coals glow with the flame's core/ember. Memoized on the
@@ -150,8 +175,8 @@ function Hearth({ fire, glow, intensity, palette, bottom = 144 }: HearthProps) {
   const warmColors = useMemo(
     () =>
       [
-        withAlpha(palette.gold, 0.58),
-        withAlpha(palette.ember, 0.22),
+        withAlpha(palette.gold, 0.46),
+        withAlpha(palette.ember, 0.2),
         withAlpha(palette.red, 0),
       ] as const,
     [palette],
@@ -165,6 +190,7 @@ function Hearth({ fire, glow, intensity, palette, bottom = 144 }: HearthProps) {
         <SplitLog
           key={spec.key}
           spec={spec}
+          woodColors={woodColors}
           warmColors={warmColors}
           warmOpacity={warmOpacity}
           cold={isOut}
