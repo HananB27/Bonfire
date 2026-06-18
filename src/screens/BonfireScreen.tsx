@@ -48,7 +48,7 @@ import { useFlames } from '../hooks/useFlames';
 import { bg0, gold, inkDim } from '../theme/tokens';
 
 const DESIGN_HEARTH_BOTTOM = 144;
-const DESIGN_CAPTION_BOTTOM = 92;
+const DESIGN_CAPTION_BOTTOM = 64;
 const DESIGN_FLAME_LOG_GAP = 8;
 
 export function fireLayoutForWidth(_width: number) {
@@ -193,7 +193,7 @@ function BonfireScreen() {
           fire={fire}
           lift={progress}
           bottom={fireLayout.captionBottom}
-          health={fireHealth}
+          palette={effectivePalette}
         />
       </View>
 
@@ -233,6 +233,7 @@ function BonfireScreen() {
       <CalendarSheet
         today={today}
         entries={entries}
+        fireHealth={fireHealth}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
         onSet={setScore}

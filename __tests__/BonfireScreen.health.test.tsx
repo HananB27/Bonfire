@@ -86,7 +86,8 @@ test('renders Radiant Fire Health and passes the state to the flame', async () =
   const tree = await renderScreen();
   const flame = findFlame(tree);
 
-  expect(allText(tree)).toMatch(/fire health Radiant/i);
+  expect(allText(tree)).toContain('Radiant');
+  expect(allText(tree)).not.toMatch(/fire health Radiant/i);
   expect(flame.props.health).toMatchObject({
     name: 'radiant',
     label: 'Radiant',
@@ -116,7 +117,8 @@ test('does not count the current day in Fire Health', async () => {
     visible: true,
     sampleCount: 3,
   });
-  expect(allText(tree)).toMatch(/fire health Faint/i);
+  expect(allText(tree)).toContain('Faint');
+  expect(allText(tree)).not.toMatch(/fire health Faint/i);
 });
 
 test('suppresses Fire Health label and flame visibility state when fire is out', async () => {
@@ -129,4 +131,17 @@ test('suppresses Fire Health label and flame visibility state when fire is out',
   expect(flame.props.fire.state).toBe('out');
   expect(flame.props.health.visible).toBe(false);
   expect(allText(tree)).not.toMatch(/fire health/i);
+});
+
+test('does not render the legacy fire subline under the logs', async () => {
+  const today = todayKey();
+  await seedEntries(
+    build(Array.from({ length: 30 }, (_, index) => [addDays(today, index - 29), 5] as [string, Score])),
+  );
+
+  const tree = await renderScreen();
+  const text = allText(tree);
+
+  expect(text).toContain('INFERNO');
+  expect(text).not.toContain('unstoppable');
 });

@@ -94,7 +94,7 @@ function jsonByTestId(
 test('starts unlit, and the swipe-up affordance is shown by default (US4)', async () => {
   const tree = await renderScreen();
   const text = allText(tree);
-  expect(text).toMatch(/tap a day to spark it/i); // unlit caption
+  expect(findFlame(tree).props.fire.state).toBe('unlit');
   expect(text).toContain('swipe up to log'); // closed-sheet handle
 });
 
@@ -102,10 +102,10 @@ test('fire layout keeps flame, logs, and caption on the same design anchor', () 
   const layout = fireLayoutForWidth(390);
   expect(layout.flameVisibleBottomFromBottom).toBe(199);
   expect(layout.hearthBottom).toBe(144);
-  expect(layout.captionBottom).toBe(92);
+  expect(layout.captionBottom).toBe(64);
 
   expect(layout.flameVisibleBottomFromBottom - layout.hearthBottom).toBe(55);
-  expect(layout.hearthBottom - layout.captionBottom).toBe(52);
+  expect(layout.hearthBottom - layout.captionBottom).toBe(80);
 
   expect(fireLayoutForWidth(320)).toEqual(layout);
   expect(fireLayoutForWidth(480)).toEqual(layout);
@@ -184,7 +184,7 @@ test('two consecutive missed days extinguish the fire (US2)', async () => {
     await press(tree, 'Advance one day');
   }
 
-  expect(allText(tree)).toMatch(/two days missed/i); // the "Out" caption
+  expect(findFlame(tree).props.fire.state).toBe('out');
 });
 
 test('clearing the only scored day returns the fire to unlit (recompute)', async () => {
@@ -195,7 +195,7 @@ test('clearing the only scored day returns the fire to unlit (recompute)', async
   await press(tree, 'scored 4 out of 5'); // reopen today's (now scored) cell
   await press(tree, 'Clear this day'); // clear it
 
-  expect(allText(tree)).toMatch(/tap a day to spark it/i); // unlit again
+  expect(findFlame(tree).props.fire.state).toBe('unlit');
 });
 
 test('autosaves a daily memory note and shows it again after reopening the day', async () => {
@@ -351,7 +351,7 @@ test('an equipped streak flame relocks when the fire goes out, then re-earns (US
 
   // Two consecutive missed past days extinguish the fire → Crimson relocks.
   for (let i = 0; i < 3; i++) await press(tree, 'Advance one day');
-  expect(allText(tree)).toMatch(/two days missed/i); // fire is out
+  expect(findFlame(tree).props.fire.state).toBe('out');
   // The flame element is hidden while out (its fire prop says so).
   expect(findFlame(tree).props.fire.state).toBe('out');
 

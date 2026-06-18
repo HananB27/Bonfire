@@ -40,14 +40,15 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { Score } from '../../domain/fire';
 import type { Entries } from '../../domain/fire';
+import type { FireHealthState } from '../../domain/fireHealth';
 import type { DateKey } from '../../domain/dates';
-import { inkFaint } from '../../theme/tokens';
 import MonthGrid from './MonthGrid';
 import ScorePickerBar from './ScorePickerBar';
 
 interface CalendarSheetProps {
   today: DateKey;
   entries: Entries;
+  fireHealth?: FireHealthState;
   selectedDate: DateKey | null;
   onSelectDate: (date: DateKey | null) => void;
   onSet: (date: DateKey, score: Score) => void;
@@ -66,6 +67,7 @@ const TIMING = {
 function CalendarSheet({
   today,
   entries,
+  fireHealth,
   selectedDate,
   onSelectDate,
   onSet,
@@ -199,6 +201,7 @@ function CalendarSheet({
           <MonthGrid
             today={today}
             entries={entries}
+            fireHealth={fireHealth}
             selectedDate={selectedDate}
             onSelectDay={onSelectDate}
           />
@@ -252,7 +255,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 14,
   },
-  handleLabel: { fontSize: 11, letterSpacing: 0.4, color: inkFaint },
+  handleLabel: { fontSize: 12.5, letterSpacing: 0.45, color: 'rgba(230,235,255,0.72)' },
   sheet: {
     position: 'absolute',
     left: 0,

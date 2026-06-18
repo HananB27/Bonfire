@@ -11,8 +11,9 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { classifyDay, type Entries, type Score } from '../../domain/fire';
+import type { FireHealthState } from '../../domain/fireHealth';
 import { monthGrid, parseYmd, type DateKey } from '../../domain/dates';
-import { ink, inkDim, inkFaint, line } from '../../theme/tokens';
+import { amber, ink, inkDim, inkFaint, line } from '../../theme/tokens';
 import DayCell from './DayCell';
 
 const MONTHS = [
@@ -26,9 +27,10 @@ interface MonthGridProps {
   entries: Entries;
   selectedDate: DateKey | null;
   onSelectDay: (dateKey: DateKey) => void;
+  fireHealth?: FireHealthState;
 }
 
-function MonthGrid({ today, entries, selectedDate, onSelectDay }: MonthGridProps) {
+function MonthGrid({ today, entries, selectedDate, onSelectDay, fireHealth }: MonthGridProps) {
   const todayDate = useMemo(() => parseYmd(today), [today]);
   const [view, setView] = useState(() => ({ y: todayDate.getFullYear(), m: todayDate.getMonth() }));
 
@@ -54,6 +56,13 @@ function MonthGrid({ today, entries, selectedDate, onSelectDay }: MonthGridProps
         <Text style={styles.title}>
           {MONTHS[view.m]} <Text style={styles.year}>{view.y}</Text>
         </Text>
+        <View style={styles.healthSlot} accessibilityRole="text">
+          {fireHealth?.visible && (
+            <Text style={styles.healthText} accessibilityLabel={`Fire Health ${fireHealth.label}`}>
+              {fireHealth.label}
+            </Text>
+          )}
+        </View>
         <View style={styles.nav}>
           <Pressable
             onPress={() => shift(-1)}
@@ -122,6 +131,13 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 17, fontWeight: '700', color: ink, letterSpacing: 0.2 },
   year: { color: inkDim, fontWeight: '500' },
+  healthSlot: { flex: 1, alignItems: 'center' },
+  healthText: {
+    color: amber,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   nav: { flexDirection: 'row', gap: 8 },
   navBtn: {
     width: 34,
