@@ -16,6 +16,7 @@ import {
   type Entries,
   type Score,
 } from '../src/domain/fire';
+import { deriveFireHealth } from '../src/domain/fireHealth';
 
 // A fixed "today" for all tests, plus a helper to name days relative to it.
 const TODAY = '2026-06-15';
@@ -118,6 +119,16 @@ describe('computeFire — back-fill and clearing (US3, FR-010/FR-011)', () => {
     const snapshot = { ...entries };
     computeFire(entries, TODAY);
     expect(entries).toEqual(snapshot);
+  });
+
+  test('Fire Health derivation does not alter fire state, strength, or labels', () => {
+    const entries: Entries = { [day(-2)]: 5, [day(-1)]: 1, [TODAY]: 5 };
+    const before = computeFire(entries, TODAY);
+
+    deriveFireHealth(entries, before, TODAY);
+
+    expect(computeFire(entries, TODAY)).toEqual(before);
+    expect(fireLabel(before.state, before.strength)).toEqual(before.label);
   });
 });
 

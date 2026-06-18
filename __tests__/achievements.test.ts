@@ -10,6 +10,7 @@ import { computeMetrics } from '../src/domain/fireMetrics';
 import { evaluateFlame, evaluateAll } from '../src/domain/achievements';
 import { FLAMES, flameById } from '../src/domain/flames';
 import { addDays } from '../src/domain/dates';
+import { deriveFireHealth } from '../src/domain/fireHealth';
 
 const TODAY = '2026-06-15';
 const day = (o: number): string => addDays(TODAY, o);
@@ -235,6 +236,24 @@ test('#10 two orderings of the same edits → identical state map (SC-005)', () 
   const fireA = computeFire(a, TODAY);
   const fireB = computeFire(b, TODAY);
   expect(evaluateAll(FLAMES, a, TODAY, fireA)).toEqual(evaluateAll(FLAMES, b, TODAY, fireB));
+});
+
+test('Fire Health derivation does not change unlock outcomes', () => {
+  const entries = build([
+    [-6, 5],
+    [-5, 4],
+    [-4, 5],
+    [-3, 5],
+    [-2, 3],
+    [-1, 4],
+    [0, 5],
+  ]);
+  const fire = computeFire(entries, TODAY);
+  const before = evaluateAll(FLAMES, entries, TODAY, fire);
+
+  deriveFireHealth(entries, fire, TODAY);
+
+  expect(evaluateAll(FLAMES, entries, TODAY, fire)).toEqual(before);
 });
 
 test('US5.2 clearing a past day drops the run below a streak condition → relock', () => {

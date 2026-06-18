@@ -10,6 +10,7 @@ import React from 'react';
 import { Canvas } from '@shopify/react-native-skia';
 import type { SharedValue } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
+import type { FireHealthState } from '../../domain/fireHealth';
 import type { FlameStyle } from '../../domain/flames';
 import type { Palette } from '../../theme/palettes';
 import { EmbersLayer } from './Embers';
@@ -25,6 +26,7 @@ interface FireSceneProps {
   clock: SharedValue<number>;
   flameDim?: number;
   flameVisibleBottomFromBottom?: number;
+  health?: FireHealthState;
 }
 
 function FireScene({
@@ -37,6 +39,7 @@ function FireScene({
   clock,
   flameDim = 1,
   flameVisibleBottomFromBottom,
+  health,
 }: FireSceneProps) {
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
@@ -49,6 +52,7 @@ function FireScene({
         dim={flameDim}
         visibleBottomFromBottom={flameVisibleBottomFromBottom}
         clock={clock}
+        health={health}
       />
       <EmbersLayer
         width={width}

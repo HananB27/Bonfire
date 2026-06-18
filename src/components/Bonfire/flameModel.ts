@@ -19,6 +19,7 @@
  */
 
 import type { FireState } from '../../domain/fire';
+import { fireHealthVisualModifiers, type FireHealthState } from '../../domain/fireHealth';
 import {
   safeVisualProfile,
   type AccentProfile,
@@ -238,6 +239,13 @@ export interface StrengthVisuals {
   aura: number; // halo/accent visibility response
 }
 
+export interface HealthVisuals {
+  glow: number;
+  warmth: number;
+  energy: number;
+  density: number;
+}
+
 /**
  * Resolve a profile's visual response to fire intensity t ∈ [0,1].
  * Each channel grows linearly from 1 (t=0) by up to 30% × the profile's
@@ -252,5 +260,19 @@ export function resolveStrengthVisuals(profile: VisualProfile, t: number): Stren
     motion: lift(sr.motion),
     particles: lift(sr.particles),
     aura: lift(sr.aura),
+  };
+}
+
+/**
+ * Resolve visual-only Fire Health multipliers for the flame renderer.
+ * Suppressed health resolves to neutral values and never touches fire strength.
+ */
+export function resolveHealthVisuals(health?: FireHealthState): HealthVisuals {
+  const modifiers = fireHealthVisualModifiers(health);
+  return {
+    glow: modifiers.glow,
+    warmth: modifiers.warmth,
+    energy: modifiers.energy,
+    density: modifiers.density,
   };
 }

@@ -60,6 +60,7 @@ import {
   type SharedValue,
 } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
+import type { FireHealthState } from '../../domain/fireHealth';
 import type { FlameStyle } from '../../domain/flames';
 import { darken, withAlpha, type Palette } from '../../theme/palettes';
 import {
@@ -68,6 +69,7 @@ import {
   resolveAuraDescriptor,
   resolveMotionDescriptor,
   resolveShapeDescriptor,
+  resolveHealthVisuals,
   resolveStrengthVisuals,
   resolveVisualProfile,
   type MotionDescriptor,
@@ -93,6 +95,9 @@ export interface FlameProps {
   // derives this from the hearth top so the visual flame/log gap stays fixed
   // across screen sizes and fire strengths.
   visibleBottomFromBottom?: number;
+  // Visual-only Fire Health state. Suppressed or missing health resolves to
+  // neutral multipliers, so out/unlit fires never show a healthy flame.
+  health?: FireHealthState;
 }
 
 // Distance (px) from the bottom of the canvas to the flame's base. The flame
@@ -553,6 +558,7 @@ export function FlameLayer({
   clock,
   dim = 1,
   visibleBottomFromBottom,
+  health,
 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
@@ -567,14 +573,15 @@ export function FlameLayer({
     () => resolveStrengthVisuals(profile, visual.intensity),
     [profile, visual.intensity],
   );
+  const healthVisual = useMemo(() => resolveHealthVisuals(health), [health]);
 
   // Embered flames burn lower: scale the halo/ground glow and overall brightness
   // by `dim` (1 = unchanged). Color still comes entirely from the `palette` prop.
-  const glow = visual.glow * dim * aura.opacityScale * Math.min(strength.aura, 1.3);
-  const bright = visual.bright * dim;
+  const glow = visual.glow * dim * aura.opacityScale * Math.min(strength.aura, 1.3) * healthVisual.glow;
+  const bright = visual.bright * dim * healthVisual.warmth;
   const lit = fire.state === 'lit';
 
-  const fh = visual.height;
+  const fh = visual.height * healthVisual.density;
   const flameFootExtension =
     shape.edge === 'jagged' || shape.edge === 'crystal' ? 0 : fh * 0.06 * shape.footprint;
   const resolvedVisibleBottomFromBottom =
@@ -813,7 +820,7 @@ export function FlameLayer({
                 key={i}
                 tongue={tongue}
                 motion={motion}
-                motionScale={Math.min(strength.motion, 1.3)}
+                motionScale={Math.min(strength.motion, 1.3) * healthVisual.energy}
                 paths={paths}
                 textures={textures}
                 stops={stops}

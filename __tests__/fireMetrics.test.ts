@@ -8,7 +8,8 @@
 
 import { computeMetrics } from '../src/domain/fireMetrics';
 import { addDays } from '../src/domain/dates';
-import type { Entries, Score } from '../src/domain/fire';
+import { computeFire, type Entries, type Score } from '../src/domain/fire';
+import { deriveFireHealth } from '../src/domain/fireHealth';
 
 const TODAY = '2026-06-15';
 const day = (offset: number): string => addDays(TODAY, offset);
@@ -100,4 +101,21 @@ test('order-independent: insertion order does not change the metrics', () => {
   const forward = build(pairs);
   const reversed = build([...pairs].reverse());
   expect(computeMetrics(reversed, TODAY)).toEqual(computeMetrics(forward, TODAY));
+});
+
+test('Fire Health derivation does not alter run metrics', () => {
+  const entries = build([
+    [-6, 5],
+    [-5, 4],
+    [-4, 4],
+    [-3, 3],
+    [-2, 5],
+    [-1, 2],
+    [0, 5],
+  ]);
+  const before = computeMetrics(entries, TODAY);
+
+  deriveFireHealth(entries, computeFire(entries, TODAY), TODAY);
+
+  expect(computeMetrics(entries, TODAY)).toEqual(before);
 });

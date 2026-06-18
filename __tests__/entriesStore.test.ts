@@ -5,6 +5,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loadEntries, saveEntries } from '../src/data/entriesStore';
+import { computeFire } from '../src/domain/fire';
+import { deriveFireHealth } from '../src/domain/fireHealth';
 
 const STORAGE_KEY = 'bonfire.entries.v1';
 
@@ -34,4 +36,15 @@ test('drops out-of-range scores from corrupt data', async () => {
 test('returns an empty map on malformed JSON', async () => {
   await AsyncStorage.setItem(STORAGE_KEY, 'not-valid-json');
   expect(await loadEntries()).toEqual({});
+});
+
+test('Fire Health derivation does not persist or mutate score entries', async () => {
+  const entries = { '2026-06-13': 4, '2026-06-14': 5, '2026-06-15': 3 } as const;
+  await saveEntries({ ...entries });
+
+  const loaded = await loadEntries();
+  deriveFireHealth(loaded, computeFire(loaded, '2026-06-15'), '2026-06-15');
+
+  expect(await loadEntries()).toEqual(entries);
+  expect(await AsyncStorage.getItem(STORAGE_KEY)).toBe(JSON.stringify(entries));
 });

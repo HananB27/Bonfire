@@ -39,6 +39,7 @@ import CalendarSheet from '../components/Calendar/CalendarSheet';
 import SettingsSheet from '../components/Settings/SettingsSheet';
 import { deriveAtmosphere } from '../domain/atmosphere';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
+import { deriveFireHealth } from '../domain/fireHealth';
 import type { FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
 import { useDayNotes } from '../hooks/useDayNotes';
@@ -89,6 +90,12 @@ function BonfireScreen() {
     settings.flameStyle,
   );
   const visual = useMemo(() => flameVisual(fire), [fire]);
+  // Fire Health intentionally lags one day: today's score can affect gameplay
+  // immediately, but the visual health window ends yesterday inside the helper.
+  const fireHealth = useMemo(
+    () => deriveFireHealth(entries, fire, today),
+    [entries, fire, today],
+  );
   const sceneWidth = sceneSize.width || width;
   const sceneHeight = sceneSize.height || height;
   const fireLayout = useMemo(() => fireLayoutForWidth(sceneWidth), [sceneWidth]);
@@ -180,8 +187,14 @@ function BonfireScreen() {
           flameVisibleBottomFromBottom={fireLayout.flameVisibleBottomFromBottom}
           intensity={visual.intensity}
           clock={sceneClock}
+          health={fireHealth}
         />
-        <FireCaption fire={fire} lift={progress} bottom={fireLayout.captionBottom} />
+        <FireCaption
+          fire={fire}
+          lift={progress}
+          bottom={fireLayout.captionBottom}
+          health={fireHealth}
+        />
       </View>
 
       {/* settings (top-right): the gear opens the flame gallery */}
