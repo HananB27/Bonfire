@@ -45,6 +45,7 @@ import { useEntries } from '../hooks/useEntries';
 import { useDayNotes } from '../hooks/useDayNotes';
 import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
+import { useFlamePulses } from '../hooks/useFlamePulses';
 import { bg0, gold, inkDim } from '../theme/tokens';
 
 const DESIGN_HEARTH_BOTTOM = 144;
@@ -89,6 +90,7 @@ function BonfireScreen() {
     fire,
     settings.flameStyle,
   );
+  const { pulse } = useFlamePulses(entries, today, fire);
   const visual = useMemo(() => flameVisual(fire), [fire]);
   // Fire Health intentionally lags one day: today's score can affect gameplay
   // immediately, but the visual health window ends yesterday inside the helper.
@@ -188,6 +190,7 @@ function BonfireScreen() {
           intensity={visual.intensity}
           clock={sceneClock}
           health={fireHealth}
+          pulse={pulse}
         />
         <FireCaption
           fire={fire}

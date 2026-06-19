@@ -25,6 +25,7 @@ import React, { useMemo } from 'react';
 import { Canvas, Circle, Group, Oval, Path, RadialGradient, Skia, rect, vec } from '@shopify/react-native-skia';
 import { useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import type { FlameStyle, ParticleKind } from '../../domain/flames';
+import type { FlamePulseState } from '../../domain/flamePulses';
 import { withAlpha, type Palette } from '../../theme/palettes';
 import { resolveParticleDescriptors, resolveVisualProfile, type ParticleDescriptor } from './flameModel';
 
@@ -37,6 +38,7 @@ export interface EmbersProps {
   activeStyle?: FlameStyle;
   // Shared scene clock from BonfireScreen; avoids a second per-frame driver.
   clock: SharedValue<number>;
+  pulse?: FlamePulseState;
 }
 
 // A deterministic seed for one particle.
@@ -316,8 +318,23 @@ function ProfileParticle({ kind, seed, clock, width, baseY, color, bright }: {
   );
 }
 
-export function EmbersLayer({ width, height, intensity, palette, activeStyle, clock }: EmbersProps) {
+export function EmbersLayer({
+  width,
+  height,
+  intensity,
+  palette,
+  activeStyle,
+  clock,
+  pulse,
+}: EmbersProps) {
   const baseY = height - 150; // just above the logs (matches the flame base)
+  const pulseWeight = pulse?.active ? pulse.visualWeight : 0;
+  const pulseParticleBoost =
+    pulse?.active ?
+      pulse.visualKind === 'brightBurst' ? 1 + 0.45 * pulseWeight
+      : 1 + 0.12 * pulseWeight
+    : pulse?.consistencyTint ? 1.08
+    : 1;
   const showProfileParticles = intensity > 0;
 
   // Ambient pool: constant count, deterministic, independent of the profile.
@@ -364,7 +381,7 @@ export function EmbersLayer({ width, height, intensity, palette, activeStyle, cl
             width={width}
             baseY={baseY}
             color={descriptor.color}
-            bright={intensity}
+            bright={Math.min(1, intensity * pulseParticleBoost)}
           />
         )),
       )}

@@ -12,6 +12,7 @@ import type { SharedValue } from 'react-native-reanimated';
 import type { FireState } from '../../domain/fire';
 import type { FireHealthState } from '../../domain/fireHealth';
 import type { FlameStyle } from '../../domain/flames';
+import type { FlamePulseState } from '../../domain/flamePulses';
 import type { Palette } from '../../theme/palettes';
 import { EmbersLayer } from './Embers';
 import { FlameLayer } from './Flame';
@@ -27,6 +28,7 @@ interface FireSceneProps {
   flameDim?: number;
   flameVisibleBottomFromBottom?: number;
   health?: FireHealthState;
+  pulse?: FlamePulseState;
 }
 
 function FireScene({
@@ -40,6 +42,7 @@ function FireScene({
   flameDim = 1,
   flameVisibleBottomFromBottom,
   health,
+  pulse,
 }: FireSceneProps) {
   return (
     <Canvas style={{ width, height }} pointerEvents="none">
@@ -53,6 +56,7 @@ function FireScene({
         visibleBottomFromBottom={flameVisibleBottomFromBottom}
         clock={clock}
         health={health}
+        pulse={pulse}
       />
       <EmbersLayer
         width={width}
@@ -61,6 +65,7 @@ function FireScene({
         palette={palette}
         activeStyle={activeStyle}
         clock={clock}
+        pulse={pulse}
       />
     </Canvas>
   );

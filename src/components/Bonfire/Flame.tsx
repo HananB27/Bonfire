@@ -62,6 +62,7 @@ import {
 import type { FireState } from '../../domain/fire';
 import type { FireHealthState } from '../../domain/fireHealth';
 import type { FlameStyle } from '../../domain/flames';
+import type { FlamePulseState } from '../../domain/flamePulses';
 import { darken, withAlpha, type Palette } from '../../theme/palettes';
 import {
   flameVisual,
@@ -98,6 +99,7 @@ export interface FlameProps {
   // Visual-only Fire Health state. Suppressed or missing health resolves to
   // neutral multipliers, so out/unlit fires never show a healthy flame.
   health?: FireHealthState;
+  pulse?: FlamePulseState;
 }
 
 // Distance (px) from the bottom of the canvas to the flame's base. The flame
@@ -259,6 +261,7 @@ function makeLayerTexture(
 
 // A 4×5 color matrix that multiplies R/G/B by `b` (brightness), keeps alpha.
 function brightnessMatrix(b: number): number[] {
+  'worklet';
   return [b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0];
 }
 
@@ -559,6 +562,7 @@ export function FlameLayer({
   dim = 1,
   visibleBottomFromBottom,
   health,
+  pulse,
 }: FlameProps) {
   const visual = useMemo(() => flameVisual(fire), [fire]);
 
@@ -575,13 +579,49 @@ export function FlameLayer({
   );
   const healthVisual = useMemo(() => resolveHealthVisuals(health), [health]);
 
+  // Pulse visual weight is animated on the UI thread: the hook flips the
+  // weight to 0 when the active segment ends, and this shared value eases that
+  // change over the pulse's fade duration without adding JS frame work.
+  const pulseWeight = useSharedValue(0);
+  const pulseTintWeight = useSharedValue(0);
+  const pulseVisualWeight = pulse?.active ? pulse.visualWeight : 0;
+  const pulseFadeMs = pulse?.fadeMs ?? 160;
+  useEffect(() => {
+    pulseWeight.value = withTiming(pulseVisualWeight, {
+      duration: pulseVisualWeight > 0 ? 90 : pulseFadeMs,
+    });
+    pulseTintWeight.value = withTiming(pulse?.consistencyTint ? 1 : 0, {
+      duration: pulse?.consistencyTint ? 90 : pulseFadeMs,
+    });
+  }, [pulseVisualWeight, pulseFadeMs, pulse?.consistencyTint, pulseWeight, pulseTintWeight]);
+
   // Embered flames burn lower: scale the halo/ground glow and overall brightness
   // by `dim` (1 = unchanged). Color still comes entirely from the `palette` prop.
-  const glow = visual.glow * dim * aura.opacityScale * Math.min(strength.aura, 1.3) * healthVisual.glow;
-  const bright = visual.bright * dim * healthVisual.warmth;
+  const pulseGlowPeak =
+    pulse?.visualKind === 'brightBurst' ? 1.45
+    : pulse?.visualKind === 'warmGlow' ? 1.22
+    : 1;
+  const pulseBrightPeak =
+    pulse?.visualKind === 'brightBurst' ? 1.24
+    : pulse?.visualKind === 'warmGlow' ? 1.08
+    : 1;
+  const baseGlow =
+    visual.glow *
+    dim *
+    aura.opacityScale *
+    Math.min(strength.aura, 1.3) *
+    healthVisual.glow;
+  const baseBright = visual.bright * dim * healthVisual.warmth;
+  const glow = useDerivedValue(() => {
+    'worklet';
+    return (
+      baseGlow *
+      (1 + (pulseGlowPeak - 1) * pulseWeight.value + 0.08 * pulseTintWeight.value)
+    );
+  }, [baseGlow, pulseGlowPeak, pulseWeight, pulseTintWeight]);
   const lit = fire.state === 'lit';
 
-  const fh = visual.height * healthVisual.density;
+  const fh = visual.height * healthVisual.density * (1 + 0.04 * pulseVisualWeight);
   const flameFootExtension =
     shape.edge === 'jagged' || shape.edge === 'crystal' ? 0 : fh * 0.06 * shape.footprint;
   const resolvedVisibleBottomFromBottom =
@@ -672,8 +712,12 @@ export function FlameLayer({
     return hueRotateMatrix(p * 20);
   });
 
-  // Brightness layer applied to the whole composited flame (dim-aware).
-  const brightPaint = useMemo(() => brightnessMatrix(bright), [bright]);
+  // Brightness layer applied to the whole composited flame (dim-aware). Pulse
+  // fades use a derived matrix so the color boost decays smoothly on UI thread.
+  const brightPaint = useDerivedValue(() => {
+    'worklet';
+    return brightnessMatrix(baseBright * (1 + (pulseBrightPeak - 1) * pulseWeight.value));
+  }, [baseBright, pulseBrightPeak, pulseWeight]);
 
   // ---- Palette-derived glow + tongue stops (003 US2) ----
   // Every surrounding-light color comes from the active flame's own palette
