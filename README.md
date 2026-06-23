@@ -272,12 +272,6 @@ Fire Health does not change streak survival, strength, storage, or unlock logic.
 If the fire is not lit, health is suppressed and the renderer uses neutral
 visual modifiers.
 
-## Design References
-
-`BonfireDesign/` contains reference design files used to port flame visuals and
-interaction behavior into the Expo app. The TypeScript app is the runnable
-product; the design folder is useful for visual parity and future flame tuning.
-
 ## Testing
 
 Run the full test suite:
