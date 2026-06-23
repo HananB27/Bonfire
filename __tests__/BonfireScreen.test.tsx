@@ -9,11 +9,12 @@
 
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
-import { AppState } from 'react-native';
+import { AppState, BackHandler } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BonfireScreen, { fireLayoutForWidth } from '../src/screens/BonfireScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { flameById } from '../src/domain/flames';
+import type { SharedValue } from 'react-native-reanimated';
 
 // Fake device metrics so useSafeAreaInsets resolves immediately in tests.
 const METRICS = {
@@ -89,6 +90,30 @@ function jsonByTestId(
     if (match) return match;
   }
   return undefined;
+}
+
+function captureBackAction() {
+  let onBack: (() => boolean) | undefined;
+  const remove = jest.fn();
+  jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
+    onBack = handler;
+    return { remove };
+  });
+  return {
+    pressBack: () => onBack?.() ?? false,
+    remove,
+  };
+}
+
+function calendarProgress(tree: ReactTestRenderer.ReactTestRenderer): SharedValue<number> {
+  const calendar = tree.root.find(
+    n =>
+      n.props &&
+      typeof n.props.onSelectDate === 'function' &&
+      n.props.progress &&
+      'selectedDate' in n.props,
+  );
+  return calendar.props.progress;
 }
 
 test('starts unlit, and the swipe-up affordance is shown by default (US4)', async () => {
@@ -256,6 +281,41 @@ test('can page back a month; next is capped at the current month (US3, FR-020)',
   expect(nextBtn().props.accessibilityState.disabled).toBe(false);
 });
 
+test('back action closes the score picker before leaving the calendar', async () => {
+  const back = captureBackAction();
+  const tree = await renderScreen();
+
+  await press(tree, 'not yet logged');
+  expect(tree.root.findByProps({ accessibilityLabel: 'Daily memory note' })).toBeTruthy();
+
+  let consumed = false;
+  await act(async () => {
+    consumed = back.pressBack();
+  });
+
+  expect(consumed).toBe(true);
+  expect(tree.root.findAllByProps({ accessibilityLabel: 'Daily memory note' })).toHaveLength(0);
+  expect(calendarProgress(tree).value).toBe(0);
+});
+
+test('back action closes the calendar when no score picker is open', async () => {
+  const back = captureBackAction();
+  const tree = await renderScreen();
+  const progress = calendarProgress(tree);
+
+  act(() => {
+    progress.value = 1;
+  });
+
+  let consumed = false;
+  await act(async () => {
+    consumed = back.pressBack();
+  });
+
+  expect(consumed).toBe(true);
+  expect(progress.value).toBe(0);
+});
+
 // The live flame's palette prop (what the screen is actually rendering). The
 // Hearth also takes `fire` + `palette` now (003 US2), so we pin the Flame by
 // its `dim` prop, which only the Flame has.
@@ -355,17 +415,32 @@ test('an equipped streak flame relocks when the fire goes out, then re-earns (US
   // The flame element is hidden while out (its fire prop says so).
   expect(findFlame(tree).props.fire.state).toBe('out');
 
-  // Relight with a weak score → lit but below Crimson's threshold → embered.
+  // Relight with a weak score → Crimson is still locked, so selection falls
+  // back to Amber instead of rendering a blackened Crimson.
   await press(tree, 'not yet logged');
   await press(tree, 'Score 3');
-  expect(flamePalette(tree).core).toBe(flameById('crimson').embered.core);
-  expect(flamePalette(tree).core).not.toBe(flameById('crimson').palette.core);
+  expect(findFlame(tree).props.activeStyle.id).toBe('amber');
+  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+  await act(async () => {});
+  expect(JSON.parse((await AsyncStorage.getItem('bonfire.settings.v2'))!).flameStyle).toBe('amber');
 
-  // Rebuild strength past the threshold → Crimson is full again.
+  // Rebuild strength past the threshold → Crimson unlocks again, but it is no
+  // longer selected automatically after the relock fallback.
   await press(tree, 'Advance one day');
   await press(tree, 'not yet logged');
   await press(tree, 'Score 5');
-  expect(flamePalette(tree).core).toBe(flameById('crimson').palette.core);
+  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+});
+
+test('a persisted flame that is locked on load falls back to Amber and rewrites settings', async () => {
+  await AsyncStorage.setItem('bonfire.settings.v2', JSON.stringify({ flameStyle: 'voidfire' }));
+
+  const tree = await renderScreen();
+  expect(findFlame(tree).props.activeStyle.id).toBe('amber');
+  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+
+  await act(async () => {});
+  expect(JSON.parse((await AsyncStorage.getItem('bonfire.settings.v2'))!).flameStyle).toBe('amber');
 });
 
 // ---- Screen-level locked-equip guard (003 US1, FR-001 defense in depth) ----

@@ -31,6 +31,7 @@ import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -64,6 +65,11 @@ const TIMING = {
   easing: Easing.bezier(0.22, 0.9, 0.3, 1),
 } as const;
 
+const clamp01 = (value: number) => {
+  'worklet';
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+};
+
 function CalendarSheet({
   today,
   entries,
@@ -77,7 +83,7 @@ function CalendarSheet({
   progress,
   height,
 }: CalendarSheetProps) {
-  const sheetH = Math.round(height * 0.72);
+  const sheetH = Math.max(1, Math.round(height * 0.72));
 
   // Drag start reference for the pan gestures.
   const startProgress = useSharedValue(0);
@@ -88,16 +94,19 @@ function CalendarSheet({
     () =>
       Gesture.Pan()
         .onBegin(() => {
-          startProgress.value = progress.value;
+          cancelAnimation(progress);
+          startProgress.value = clamp01(progress.value);
         })
         .onUpdate(e => {
           const next = startProgress.value + -e.translationY / sheetH;
-          progress.value = Math.min(1, Math.max(0, next));
+          progress.value = clamp01(next);
         })
         .onEnd(e => {
           // Snap by position + a flick of velocity.
-          const goingOpen = progress.value > 0.5 || e.velocityY < -600;
+          const currentProgress = clamp01(progress.value);
+          const goingOpen = currentProgress > 0.5 || e.velocityY < -600;
           const stayingOpen = goingOpen && e.velocityY < 600;
+          cancelAnimation(progress);
           if (stayingOpen) {
             progress.value = withTiming(1, TIMING);
           } else {
@@ -111,6 +120,7 @@ function CalendarSheet({
   const handlePan = useMemo(() => makePan(), [makePan]);
   const headerPan = useMemo(() => makePan(), [makePan]);
   const handleTap = useMemo(() => Gesture.Tap().onEnd(() => {
+    cancelAnimation(progress);
     progress.value = withTiming(1, TIMING);
   }), [progress]);
 
@@ -134,7 +144,8 @@ function CalendarSheet({
     [makePan],
   );
   const overlayTap = useMemo(() => Gesture.Tap().onEnd(() => {
-    if (progress.value > 0.5) {
+    if (clamp01(progress.value) > 0.5) {
+      cancelAnimation(progress);
       progress.value = withTiming(0, TIMING);
       runOnJS(onSelectDate)(null);
     }
@@ -149,17 +160,23 @@ function CalendarSheet({
   );
 
   // Sheet slides up: translateY from sheetH (hidden) to 0 (open).
-  const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (1 - progress.value) * sheetH }],
-  }));
+  const sheetStyle = useAnimatedStyle(() => {
+    const p = clamp01(progress.value);
+    return {
+      transform: [{ translateY: (1 - p) * sheetH }],
+    };
+  });
   // Scrim fades in as the sheet opens.
   const scrimStyle = useAnimatedStyle(() => ({
-    opacity: progress.value * 0.42,
+    opacity: clamp01(progress.value) * 0.42,
   }));
   // Closed-state handle fades out as the sheet opens.
-  const handleStyle = useAnimatedStyle(() => ({
-    opacity: 1 - Math.min(1, progress.value * 2),
-  }));
+  const handleStyle = useAnimatedStyle(() => {
+    const p = clamp01(progress.value);
+    return {
+      opacity: 1 - Math.min(1, p * 2),
+    };
+  });
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">

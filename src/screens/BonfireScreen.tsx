@@ -18,9 +18,14 @@
  * two-missed-days extinguish rule without waiting for real days to pass.
  */
 
+/* eslint-disable react-hooks/immutability --
+ * Reanimated SharedValue `.value` assignments are required for the calendar
+ * sheet animation and frame clock; they are not React prop/state mutation. */
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AppState,
+  BackHandler,
   Pressable,
   StyleSheet,
   Text,
@@ -29,7 +34,14 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFrameCallback, useReducedMotion, useSharedValue } from 'react-native-reanimated';
+import {
+  cancelAnimation,
+  Easing,
+  useFrameCallback,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import Atmosphere from '../components/Bonfire/Atmosphere';
 import FireScene from '../components/Bonfire/FireScene';
 import Hearth, { HEARTH_TOP_LOG_OFFSET } from '../components/Bonfire/Hearth';
@@ -40,7 +52,7 @@ import SettingsSheet from '../components/Settings/SettingsSheet';
 import { deriveAtmosphere } from '../domain/atmosphere';
 import { addDays, todayKey, type DateKey } from '../domain/dates';
 import { deriveFireHealth } from '../domain/fireHealth';
-import type { FlameId } from '../domain/flames';
+import { BASE_FLAME_ID, type FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
 import { useDayNotes } from '../hooks/useDayNotes';
 import { useSettings } from '../hooks/useSettings';
@@ -51,6 +63,10 @@ import { bg0, gold, inkDim } from '../theme/tokens';
 const DESIGN_HEARTH_BOTTOM = 144;
 const DESIGN_CAPTION_BOTTOM = 64;
 const DESIGN_FLAME_LOG_GAP = 8;
+const CALENDAR_TIMING = {
+  duration: 420,
+  easing: Easing.bezier(0.22, 0.9, 0.3, 1),
+} as const;
 
 export function fireLayoutForWidth(_width: number) {
   const hearthBottom = DESIGN_HEARTH_BOTTOM;
@@ -81,9 +97,9 @@ function BonfireScreen() {
   } = useDayNotes(selectedDate);
   const { settings, ready: settingsReady, setFlameStyle } = useSettings();
 
-  // Derive every flame's unlock state + what the active flame should render
-  // (full palette when unlocked, dim "embered" palette when locked). Memoized
-  // off the render path so switching flames never drops frames (SC-010).
+  // Derive every flame's unlock state + what the active flame should render.
+  // If a saved selection relocks, `useFlames` renders Amber immediately while
+  // the effect below persists that same fallback.
   const { states, activeStyle, effectivePalette, dim, newlyUnlocked } = useFlames(
     entries,
     today,
@@ -129,14 +145,43 @@ function BonfireScreen() {
   const reducedMotion = useReducedMotion();
   const sceneFrame = useFrameCallback(frame => {
     'worklet';
-    if (progress.value <= 0.001) {
-      sceneClock.value = frame.timeSinceFirstFrame ?? 0;
-    }
+    // Keep the full fire scene at display rate even while the calendar moves.
+    sceneClock.value = frame.timeSinceFirstFrame ?? 0;
   }, false);
 
   useEffect(() => {
     sceneFrame.setActive(!reducedMotion);
   }, [reducedMotion, sceneFrame]);
+
+  useEffect(() => {
+    if (settings.flameStyle !== BASE_FLAME_ID && states[settings.flameStyle]?.unlocked !== true) {
+      setFlameStyle(BASE_FLAME_ID);
+    }
+  }, [settings.flameStyle, setFlameStyle, states]);
+
+  const closeCalendar = useCallback(() => {
+    cancelAnimation(progress);
+    progress.value = withTiming(0, CALENDAR_TIMING);
+    setSelectedDate(null);
+  }, [progress]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedDate !== null) {
+        setSelectedDate(null);
+        return true;
+      }
+
+      if (progress.value > 0.01) {
+        closeCalendar();
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [closeCalendar, progress, selectedDate]);
 
   // Refresh the derived sky only when the app becomes active. This keeps the
   // atmosphere aligned with local time without adding timers or per-frame work.
@@ -164,12 +209,11 @@ function BonfireScreen() {
 
       {/* the fire scene (GPU flame + embers, then hearth + caption on top).
           Out-state precedence (US2): `Flame` hides itself whenever the fire is
-          not lit, so a locked/embered flame is NEVER drawn while the fire is out
-          — the Hearth's smoke wins. The embered palette + `dim` only take effect
-          when the fire is lit but the equipped flame is still locked.
+          not lit, so the Hearth's smoke wins. Relocked selections render Amber
+          immediately, avoiding the old blackened/embered selected-flame state.
           `activeStyle` (004) carries the BonfireDesign visualProfile into the
           flame (shape/motion/aura/accents) and embers (particle mix); palette +
-          dim still control color/energy, so embered behavior is unchanged. */}
+          dim still control color/energy for the rendered flame. */}
       <View style={StyleSheet.absoluteFill} pointerEvents="none" onLayout={handleSceneLayout}>
         <Hearth
           fire={fire}
@@ -203,7 +247,7 @@ function BonfireScreen() {
       {/* settings (top-right): the gear opens the flame gallery */}
       <SettingsSheet
         states={states}
-        activeId={settings.flameStyle}
+        activeId={activeStyle.id}
         onEquip={handleEquip}
         newlyUnlocked={newlyUnlocked}
         top={insets.top}

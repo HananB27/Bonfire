@@ -3,9 +3,9 @@
  *
  * Loads the saved settings once on mount (flipping `ready` to true), and exposes
  * `setFlameStyle` which validates the id against the catalog, updates state, and
- * persists it. Any catalog id is accepted — including LOCKED flames, which the
- * user may equip and see rendered embered until earned (FR-012). Persistence is
- * fire-and-forget: the data is local and tiny, and a write failure shouldn't
+ * persists it. Callers are responsible for only selecting currently unlocked
+ * flames; if one later relocks, the screen resets it back to Amber. Persistence
+ * is fire-and-forget: the data is local and tiny, and a write failure shouldn't
  * block the UI.
  */
 

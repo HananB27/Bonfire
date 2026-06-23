@@ -3,8 +3,8 @@
  *
  * Given the calendar, today, the fire, and the user's chosen flame id, it returns
  * the unlock state of every flame plus what the on-screen fire should actually
- * render: the active flame's full palette when unlocked, or its dim "embered"
- * palette when locked.
+ * render. If the saved selection relocks, rendering falls back to the base flame
+ * immediately; the screen then persists that same fallback.
  *
  * PERFORMANCE (SC-010): the catalog evaluation (`evaluateAll`) is wrapped in
  * `useMemo` keyed on the things that actually change the result — the entries,
@@ -18,15 +18,15 @@ import { useMemo, useState } from 'react';
 import type { DateKey } from '../domain/dates';
 import type { Entries, FireState } from '../domain/fire';
 import { evaluateAll, type AchievementState } from '../domain/achievements';
-import { FLAMES, flameById, type FlameId, type FlameStyle } from '../domain/flames';
-import { EMBERED_DIM, type Palette } from '../theme/palettes';
+import { BASE_FLAME_ID, FLAMES, flameById, type FlameId, type FlameStyle } from '../domain/flames';
+import type { Palette } from '../theme/palettes';
 
 export interface UseFlames {
   states: Record<FlameId, AchievementState>; // unlock state for every catalog flame
-  activeStyle: FlameStyle; // the user's selected flame
-  activeUnlocked: boolean; // whether that flame is currently unlocked
-  effectivePalette: Palette; // full palette if unlocked, embered if locked
-  dim: number; // 1 if unlocked, EMBERED_DIM if locked (glow/brightness knob)
+  activeStyle: FlameStyle; // the rendered flame; locked saved ids fall back to base
+  activeUnlocked: boolean; // whether the requested flame was unlocked before fallback
+  effectivePalette: Palette; // always the rendered flame's full palette
+  dim: number; // always 1; locked selections are not rendered embered
   newlyUnlocked: FlameId[]; // flames that flipped locked→unlocked on this evaluation (FR-023)
 }
 
@@ -64,12 +64,11 @@ export function useFlames(
 
   // Selecting a flame is a cheap lookup; resolving + render values are memoized
   // so a flame switch is just a palette swap (no catalog re-evaluation).
-  const activeStyle = useMemo(() => flameById(flameStyleId), [flameStyleId]);
-  // Defensive default: a missing state (impossible while evaluateAll covers the
-  // whole catalog) renders embered rather than wrongly granting full color.
-  const activeUnlocked = states[activeStyle.id]?.unlocked ?? false;
-  const effectivePalette = activeUnlocked ? activeStyle.palette : activeStyle.embered;
-  const dim = activeUnlocked ? 1 : EMBERED_DIM;
+  const requestedStyle = useMemo(() => flameById(flameStyleId), [flameStyleId]);
+  const activeUnlocked = states[requestedStyle.id]?.unlocked === true;
+  const activeStyle = activeUnlocked ? requestedStyle : flameById(BASE_FLAME_ID);
+  const effectivePalette = activeStyle.palette;
+  const dim = 1;
 
   return { states, activeStyle, activeUnlocked, effectivePalette, dim, newlyUnlocked };
 }

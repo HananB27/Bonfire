@@ -39,16 +39,20 @@ export interface FlameVisual {
   emberRate: number; // embers spawned per tick ~ intensity: 1 + round(t*2)
 }
 
-/** Continuous strength → normalised intensity in [0,1) with diminishing returns. */
+/**
+ * Continuous strength → normalised intensity in [0,1) with a flatter start and
+ * the current s/(s+60) tail.
+
+ */
 export function intensity(strength: number): number {
-  return 1 - Math.exp(-Math.max(0, strength) / 14);
+  const s = Math.max(0, strength);
+  return s / (s + 60 + Math.max(0, 60 - s));
 }
 
 /** Map the full fire state to the numbers the flame/embers render from. */
 export function flameVisual(fire: FireState): FlameVisual {
   const lit = fire.state === 'lit';
   const t = intensity(fire.strength);
-
   const height = lit ? 60 + 268 * t : 30;
   const glow = lit ? 0.35 + 0.6 * t : fire.state === 'unlit' ? 0.12 : 0;
   const bright = 0.85 + 0.45 * t;

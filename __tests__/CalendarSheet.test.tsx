@@ -160,3 +160,20 @@ test('closing via the sheet-body pan clears the selected day (FR-010)', () => {
   );
   expect(cellAfter.props.accessibilityState.selected).toBeFalsy();
 });
+
+test('pan updates clamp progress so fast swipes cannot place the sheet off-screen', () => {
+  const { progress } = renderSheet(1);
+  const pan = downOnlyPan().at(-1)!;
+
+  act(() => {
+    pan.handlers.onBegin?.({});
+    pan.handlers.onUpdate?.({ translationY: -10000 });
+  });
+  expect(progress.value).toBe(1);
+
+  act(() => {
+    pan.handlers.onBegin?.({});
+    pan.handlers.onUpdate?.({ translationY: 10000 });
+  });
+  expect(progress.value).toBe(0);
+});
