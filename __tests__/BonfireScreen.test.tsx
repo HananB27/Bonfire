@@ -14,6 +14,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import BonfireScreen, { fireLayoutForWidth } from '../src/screens/BonfireScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { flameById } from '../src/domain/flames';
+import { addDays, todayKey } from '../src/domain/dates';
+import type { Entries, Score } from '../src/domain/fire';
 import type { SharedValue } from 'react-native-reanimated';
 
 // Fake device metrics so useSafeAreaInsets resolves immediately in tests.
@@ -49,6 +51,18 @@ afterEach(() => {
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
+
+async function seedEntries(entries: Entries) {
+  await AsyncStorage.setItem('bonfire.entries.v1', JSON.stringify(entries));
+}
+
+function consecutiveFivesEndingToday(): Entries {
+  const today = todayKey();
+  return {
+    [addDays(today, -1)]: 5 as Score,
+    [today]: 5 as Score,
+  };
+}
 
 // Find the single composite element with an onPress AND a matching a11y label.
 function press(tree: ReactTestRenderer.ReactTestRenderer, labelIncludes: string) {
@@ -199,15 +213,9 @@ test('logging a 5 today lights the fire (US1)', async () => {
 });
 
 test('two consecutive missed days extinguish the fire (US2)', async () => {
+  const today = todayKey();
+  await seedEntries({ [addDays(today, -3)]: 3 as Score });
   const tree = await renderScreen();
-
-  await press(tree, 'not yet logged'); // open today
-  await press(tree, 'Score 3'); // lit
-
-  // Advance 3 days: two consecutive missed past days → out.
-  for (let i = 0; i < 3; i++) {
-    await press(tree, 'Advance one day');
-  }
 
   expect(findFlame(tree).props.fire.state).toBe('out');
 });
@@ -371,16 +379,10 @@ test('the gallery opens from the gear; by default only Amber is unlocked (US1.3)
 });
 
 test('earning a streak flame lets you equip it and the flame recolors (US1)', async () => {
+  await seedEntries(consecutiveFivesEndingToday());
   const tree = await renderScreen();
 
   // Build run strength 8 (two 5s on consecutive days) → Crimson (≥5) unlocks.
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-  await press(tree, 'Advance one day');
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-
-  // Initially the active flame is Amber (its sampled core color).
   expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
 
   await press(tree, 'choose flame'); // open the gallery
@@ -395,41 +397,45 @@ test('earning a streak flame lets you equip it and the flame recolors (US1)', as
 });
 
 test('an equipped streak flame relocks when the fire goes out, then re-earns (US2)', async () => {
+  const today = todayKey();
+  await seedEntries(consecutiveFivesEndingToday());
   const tree = await renderScreen();
 
-  // Earn + equip Crimson (run strength 8).
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-  await press(tree, 'Advance one day');
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
   await press(tree, 'choose flame');
   await act(async () => {
     flameRow(tree, 'Crimson').props.onPress();
   });
   expect(flamePalette(tree).core).toBe(flameById('crimson').palette.core); // full Crimson
 
-  // Two consecutive missed past days extinguish the fire → Crimson relocks.
-  for (let i = 0; i < 3; i++) await press(tree, 'Advance one day');
-  expect(findFlame(tree).props.fire.state).toBe('out');
+  act(() => {
+    tree.unmount();
+  });
+  rendered = null;
+
+  // Same saved Crimson selection, but calendar now has two missed past days.
+  await seedEntries({
+    [addDays(today, -4)]: 5 as Score,
+    [addDays(today, -3)]: 5 as Score,
+  });
+  const relockedTree = await renderScreen();
+  expect(findFlame(relockedTree).props.fire.state).toBe('out');
   // The flame element is hidden while out (its fire prop says so).
-  expect(findFlame(tree).props.fire.state).toBe('out');
+  expect(findFlame(relockedTree).props.fire.state).toBe('out');
 
   // Relight with a weak score → Crimson is still locked, so selection falls
   // back to Amber instead of rendering a blackened Crimson.
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 3');
-  expect(findFlame(tree).props.activeStyle.id).toBe('amber');
-  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+  await press(relockedTree, 'not yet logged');
+  await press(relockedTree, 'Score 3');
+  expect(findFlame(relockedTree).props.activeStyle.id).toBe('amber');
+  expect(flamePalette(relockedTree).core).toBe(flameById('amber').palette.core);
   await act(async () => {});
   expect(JSON.parse((await AsyncStorage.getItem('bonfire.settings.v2'))!).flameStyle).toBe('amber');
 
   // Rebuild strength past the threshold → Crimson unlocks again, but it is no
   // longer selected automatically after the relock fallback.
-  await press(tree, 'Advance one day');
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-  expect(flamePalette(tree).core).toBe(flameById('amber').palette.core);
+  await press(relockedTree, addDays(today, -1));
+  await press(relockedTree, 'Score 5');
+  expect(flamePalette(relockedTree).core).toBe(flameById('amber').palette.core);
 });
 
 test('a persisted flame that is locked on load falls back to Amber and rewrites settings', async () => {
@@ -504,14 +510,9 @@ test('the active FlameStyle is passed to Embers for its particle mix (004 US3)',
 });
 
 test('equipping a flame swaps the visualProfile reaching Flame and Embers (004 US1/US3)', async () => {
+  await seedEntries(consecutiveFivesEndingToday());
   const tree = await renderScreen();
 
-  // Earn + equip Crimson.
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-  await press(tree, 'Advance one day');
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
   await press(tree, 'choose flame');
   await act(async () => {
     flameRow(tree, 'Crimson').props.onPress();
@@ -523,11 +524,9 @@ test('equipping a flame swaps the visualProfile reaching Flame and Embers (004 U
 });
 
 test('out-state precedence: the live flame is hidden when the fire goes out (004 US5)', async () => {
+  const today = todayKey();
+  await seedEntries({ [addDays(today, -3)]: 3 as Score });
   const tree = await renderScreen();
-
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 3'); // lit
-  for (let i = 0; i < 3; i++) await press(tree, 'Advance one day'); // → out
 
   // The flame still receives its profile, but its fire prop says `out`, so the
   // component hides itself (no live flame / profile accents are drawn).
@@ -538,15 +537,10 @@ test('out-state precedence: the live flame is hidden when the fire goes out (004
 });
 
 test('equipping an UNLOCKED flame id still persists as before (FR-003)', async () => {
+  await seedEntries(consecutiveFivesEndingToday());
   const tree = await renderScreen();
 
   // Earn Crimson (run strength 8 via two 5s on consecutive days).
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-  await press(tree, 'Advance one day');
-  await press(tree, 'not yet logged');
-  await press(tree, 'Score 5');
-
   await act(async () => {
     equipHandler(tree)('crimson');
   });

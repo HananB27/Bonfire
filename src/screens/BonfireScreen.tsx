@@ -14,8 +14,7 @@
  * The flame stays physically fixed; opening the calendar should not move the fire.
  *
  * Until both stores finish loading we show a plain dark screen (no premature
- * "unlit" flash — FR-015). A `__DEV__`-only "advance a day" pill lets us test the
- * two-missed-days extinguish rule without waiting for real days to pass.
+ * "unlit" flash — FR-015).
  */
 
 /* eslint-disable react-hooks/immutability --
@@ -26,9 +25,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AppState,
   BackHandler,
-  Pressable,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
   type LayoutChangeEvent,
@@ -50,7 +47,7 @@ import { flameVisual } from '../components/Bonfire/flameModel';
 import CalendarSheet from '../components/Calendar/CalendarSheet';
 import SettingsSheet from '../components/Settings/SettingsSheet';
 import { deriveAtmosphere } from '../domain/atmosphere';
-import { addDays, todayKey, type DateKey } from '../domain/dates';
+import { todayKey, type DateKey } from '../domain/dates';
 import { deriveFireHealth } from '../domain/fireHealth';
 import { BASE_FLAME_ID, type FlameId } from '../domain/flames';
 import { useEntries } from '../hooks/useEntries';
@@ -58,7 +55,7 @@ import { useDayNotes } from '../hooks/useDayNotes';
 import { useSettings } from '../hooks/useSettings';
 import { useFlames } from '../hooks/useFlames';
 import { useFlamePulses } from '../hooks/useFlamePulses';
-import { bg0, gold, inkDim } from '../theme/tokens';
+import { bg0 } from '../theme/tokens';
 
 const DESIGN_HEARTH_BOTTOM = 144;
 const DESIGN_CAPTION_BOTTOM = 64;
@@ -83,10 +80,7 @@ function BonfireScreen() {
   const [sceneSize, setSceneSize] = useState({ width, height });
   const [atmosphere, setAtmosphere] = useState(() => deriveAtmosphere());
 
-  // The "real" today is fixed per session; dev offset simulates days passing.
-  const realToday = useMemo(() => todayKey(), []);
-  const [devOffset, setDevOffset] = useState(0);
-  const today: DateKey = useMemo(() => addDays(realToday, devOffset), [realToday, devOffset]);
+  const today: DateKey = useMemo(() => todayKey(), []);
   const [selectedDate, setSelectedDate] = useState<DateKey | null>(null);
 
   const { entries, fire, ready: entriesReady, setScore, clearScore } = useEntries(today);
@@ -253,29 +247,6 @@ function BonfireScreen() {
         top={insets.top}
       />
 
-      {/* dev-only advance-a-day pill (mirrors the design's dev pill) */}
-      {__DEV__ && (
-        <View style={[styles.dev, { top: insets.top + 6 }]} pointerEvents="box-none">
-          <Text style={styles.devText}>
-            day <Text style={styles.devDay}>{today.slice(5)}</Text>
-          </Text>
-          {devOffset !== 0 && (
-            <Pressable
-              onPress={() => setDevOffset(0)}
-              accessibilityLabel="Reset to today"
-              style={styles.devBtn}>
-              <Text style={styles.devBtnText}>today</Text>
-            </Pressable>
-          )}
-          <Pressable
-            onPress={() => setDevOffset(o => o + 1)}
-            accessibilityLabel="Advance one day"
-            style={styles.devBtn}>
-            <Text style={styles.devBtnText}>+</Text>
-          </Pressable>
-        </View>
-      )}
-
       {/* the swipe-up calendar */}
       <CalendarSheet
         today={today}
@@ -297,35 +268,6 @@ function BonfireScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: bg0 },
   loading: { backgroundColor: bg0 },
-  dev: {
-    position: 'absolute',
-    left: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(10,14,26,0.7)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingLeft: 10,
-    paddingRight: 6,
-    zIndex: 58,
-  },
-  devText: { fontSize: 10.5, color: inkDim },
-  devDay: { color: gold, fontWeight: '600' },
-  devBtn: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
-    paddingHorizontal: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  devBtnText: { color: '#f4ead8', fontSize: 12 },
 });
 
 export default BonfireScreen;

@@ -31,9 +31,8 @@ export interface UseEntries {
 }
 
 /**
- * @param today the current local date key; passed in so the hook (and the fire
- *              engine) stay testable and so a dev "advance the day" control can
- *              override it.
+ * @param today the current local date key; passed in so the hook and fire
+ *              engine stay testable.
  */
 export function useEntries(today: DateKey): UseEntries {
   const [entries, setEntries] = useState<Entries>({});
