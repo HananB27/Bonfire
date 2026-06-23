@@ -93,3 +93,6 @@ Thumbs.db
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Design
+/BonfireDesign
