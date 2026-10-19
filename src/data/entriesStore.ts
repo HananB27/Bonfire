@@ -8,7 +8,10 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isScore, type Entries, type Score } from '../domain/fire';
+import type { Entries, Score } from '../domain/fire';
+
+const isScore = (value: unknown): value is Score =>
+  value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
 
 // Versioned key: the "v1" suffix lets us migrate to a new format later without
 // clashing with old data.
