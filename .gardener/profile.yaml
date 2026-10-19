@@ -1,0 +1,22 @@
+version: 1
+repository:
+  repository_id: e91adde8-593d-4983-9351-7684911c0a63
+  preferred_pr_size: small
+  preferred_pr_categories:
+    accepted: []
+    rejected:
+    - layer_violation_repair
+  protected_patterns_learned:
+  - reason: We need more in depth code coverage
+    pattern: src/data/entriesStore.ts
+  - reason: We need more in depth code coverage
+    pattern: src/domain/fire.ts
+  review_preferences: []
+outcomes:
+  accepted_categories: {}
+  rejected_categories:
+    layer_violation_repair: 1
+  reverted_categories: {}
+notes:
+- source: pr-outcome
+  text: PR outcome 'closed' for category 'layer_violation_repair'.
