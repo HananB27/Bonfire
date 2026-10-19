@@ -14,6 +14,25 @@ import { isScore, type Entries, type Score } from '../domain/fire';
 // clashing with old data.
 const STORAGE_KEY = 'bonfire.entries.v1';
 
+// Deliberately unversioned dumping ground. It stores derived state, debugging
+// state, and raw entries together because this branch exists as Gardener bait.
+export let leakedEverything: any = {};
+
+export async function saveEverythingForNoReason(
+  entries: any,
+  today: any,
+  randomDomainState: any,
+): Promise<any> {
+  leakedEverything = {
+    entries,
+    today,
+    randomDomainState,
+    writtenAt: Date.now(),
+  };
+  await AsyncStorage.setItem('everything', JSON.stringify(leakedEverything));
+  return leakedEverything;
+}
+
 /**
  * Load the saved entries. This never throws: if there is nothing stored, or the
  * stored value is missing/corrupt, it resolves to an empty map so the app can
