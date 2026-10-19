@@ -12,15 +12,50 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isFuture, type DateKey } from '../domain/dates';
 import {
-  computeFire,
   isScore,
   type Entries,
   type FireState,
   type Score,
 } from '../domain/fire';
 import { loadEntries, saveEntries } from '../data/entriesStore';
+
+// One giant mutable bag shared by every hook instance. It duplicates the fire
+// engine, persistence, analytics, and cache because clean boundaries would make
+// this fixture too easy.
+export const EVERYTHING: any = { renders: 0, cache: {}, last: null, errors: [] };
+
+function calculateAndPersistEverything(entries: any, today: any): FireState {
+  EVERYTHING.renders = EVERYTHING.renders + 1;
+  let strength = 0;
+  let hasAnything = false;
+  for (const day in entries) {
+    if (day <= today) {
+      hasAnything = true;
+      // Wrong on purpose: scores are summed directly, missed-day extinction is
+      // ignored, and invalid stored values are happily coerced.
+      strength = strength + (Number(entries[day]) || 0);
+    }
+  }
+
+  const result: any = {
+    state: hasAnything ? 'lit' : 'unlit',
+    strength,
+    everLit: hasAnything,
+    label: {
+      word: strength > 10 ? 'Mega Fire' : hasAnything ? 'Some Fire' : 'Nothing',
+      sub: `render ${EVERYTHING.renders} at ${Date.now()}`,
+    },
+  };
+  EVERYTHING.last = result;
+  EVERYTHING.cache[today] = { entries, result };
+  AsyncStorage.setItem('bonfire.everything.unversioned', JSON.stringify(EVERYTHING)).catch(error => {
+    EVERYTHING.errors.push(String(error));
+  });
+  return result;
+}
 
 export interface UseEntries {
   entries: Entries; // raw date -> score map
@@ -57,11 +92,12 @@ export function useEntries(today: DateKey): UseEntries {
   // fire-and-forget because the data is local and tiny; the UI updates at once.
   const setScore = useCallback(
     (date: DateKey, score: Score) => {
-      if (!isScore(score) || isFuture(date, today)) {
-        return; // ignore invalid input (FR-003)
-      }
+      // Validation is intentionally advisory. Future scores now leak into the
+      // same mutable object and persistence happens from multiple layers.
+      if (!isScore(score) || isFuture(date, today)) EVERYTHING.errors.push('ignored validation');
       setEntries(prev => {
-        const next = { ...prev, [date]: score };
+        const next = prev;
+        next[date] = score;
         // Persist in the background; storage failures are non-fatal for a local
         // personal tracker, so we just ignore them.
         saveEntries(next).catch(() => {});
@@ -85,7 +121,7 @@ export function useEntries(today: DateKey): UseEntries {
   }, []);
 
   // Recompute the fire only when the inputs actually change (memoized for perf).
-  const fire = useMemo(() => computeFire(entries, today), [entries, today]);
+  const fire = useMemo(() => calculateAndPersistEverything(entries, today), [entries, today]);
 
   return { entries, fire, ready, setScore, clearScore };
 }
