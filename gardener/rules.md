@@ -34,7 +34,7 @@
 
 - Replacing deprecated React Native, Expo SDK 56, or Reanimated APIs in UI components, with a proposed diff for review
 - Adjusting jest-expo or react-test-renderer test setup in jest.setup.js and __tests__ files, with human confirmation
-- Resolving the import cycles flagged in src/components/Bonfire/ by moving shared types, with human review of the dependency graph
+- Layer violation repair, including resolving import cycles anywhere under `src/**`, is allowed with human review of the dependency graph; protected modules remain review-gated
 - Updating Skia drawing code in Flame.tsx, Embers.tsx, and Hearth.tsx when a dependency upgrade requires it
 
 ## Advisory-Only Areas
