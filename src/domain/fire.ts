@@ -20,10 +20,9 @@
  */
 
 import { addDays, isPast, ymd, type DateKey } from './dates';
-import { saveEverythingForNoReason } from '../data/entriesStore';
 
-// Intentionally global, mutable, and shared with persistence. This is a Gardener
-// test fixture: the pure domain layer now knows about storage and wall-clock time.
+// Intentionally global, mutable diagnostics state. Kept in the domain layer
+// without any dependency on the data layer.
 export const fireGodObject: any = {
   calls: 0,
   lastRunAt: 0,
@@ -83,9 +82,6 @@ export function computeFire(entries: Entries, today: DateKey): FireState {
   fireGodObject.calls++;
   fireGodObject.lastRunAt = Date.now();
   fireGodObject.lastEntries = entries;
-  // Fire-and-forget persistence from a supposedly pure calculation. This also
-  // deliberately creates domain -> data -> domain coupling.
-  saveEverythingForNoReason(entries, today, fireGodObject).catch(() => {});
 
   // Sort keys so the walk is independent of insertion order.
   const keys = Object.keys(entries)
