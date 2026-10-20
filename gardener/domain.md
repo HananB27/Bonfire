@@ -6,51 +6,51 @@
 - Gardener should keep changes within this project's domain. Flag work that introduces features outside it.
 - Scope source of truth: `spec digest (69/69 spec documents read in full)`.
 - In-domain: `mobile app`.
-- In-domain: `React Native`.
-- In-domain: `productivity tracking`.
-- In-domain: `gamification / achievements`.
+- In-domain: `React Native / Expo`.
+- In-domain: `habit and productivity tracking`.
+- In-domain: `gamification (achievements and collectible flame styles)`.
 - In-domain: `GPU graphics and animation (Skia, Reanimated)`.
-- In-domain: `local-first on-device storage`.
-- Capability: Record one integer productivity score from 1 to 5 per day.
-- Capability: Compute cumulative fire strength over the current alive run from per-day scores (score 1 keeps fire at current size; higher scores add more strength).
-- Capability: Tolerate a single missed past day; extinguish the fire after two consecutive missed past days, resetting strength to zero.
-- Capability: Relight an extinguished fire when any score is logged; logged days always count as active.
-- Capability: Add, change, or clear scores for any past or current day with the fire recomputed deterministically from stored history.
-- Capability: Render an animated bonfire flame via React Native Skia with distinct unlit/spark, lit-at-varying-sizes, and out states.
-- Capability: Emit rising particles/embers from the lit flame; out state shows charred logs and faint smoke with no flame or embers.
-- Capability: Swipe-up bottom sheet calendar with backward month paging through any number of past months, inline 1-5 score picking, and swipe-down to hide.
-- Capability: Full-screen upward swipe to open calendar that does not steal taps from the settings gear, dev pill, or day cells.
-- Capability: Top-right settings button.
-- Capability: Flame color choice (Amber default, Crimson, Sapphire) in v1, migrated to a flame style id in v2.
-- Capability: Catalog of collectible flame styles, each tied to exactly one achievement; Amber always unlocked and default; all non-Amber flames locked by default.
-- Capability: Streak-based achievements: N-day run (scored days in current alive run) and unbroken chain (no gaps); streak flames relock when the fire goes out.
-- Capability: Time-based achievements: flames unlocked on an achievement day and valid for a fixed window through D+W inclusive, with days remaining countdown; re-completion inside a window restarts it from the newer day.
-- Capability: Dead fire voids all non-Amber flames; time flames require both a valid window and a lit fire.
-- Capability: Locked-but-equipped flames render an embered (dimmed) variant derived from the full style; Amber never renders embered.
-- Capability: Flame gallery from settings listing every flame with unlocked/locked status, name, colors, requirement, live progress, and window countdown.
-- Capability: Users may equip any flame from the gallery, including locked ones.
-- Capability: Unlock states recompute within one screen refresh after score changes, with brief in-app unlock feedback.
-- Capability: Persist scores, per-day notes, selected flame style, and flame color locally via AsyncStorage across restarts; loading placeholder until data loads (no unlit flash).
-- Capability: Short per-day notes that do not affect score or fire logic.
-- Capability: Visual-only Fire Health tiers (Faint, Steady, Bright, Radiant) derived from recent score quality.
-- Capability: Scene atmosphere adapting to local time without continuous JS timers.
-- Capability: Reduced-motion support that stops flame loops when the OS requests it.
+- In-domain: `local-first on-device data persistence`.
+- In-domain: `calendar and gesture-driven UI`.
+- Capability: Record a 1-5 integer productivity score for the current day and for any past day.
+- Capability: Add, change, or clear scores for past days, with the fire recomputed from the calendar history.
+- Capability: Compute fire strength as a cumulative sum of per-day contributions over the current alive run (score 1 holds size, 2-5 add increasing strength, 5 adds the most).
+- Capability: Extinguish the fire when two consecutive past days are missed; a single missed day keeps it lit.
+- Capability: Relight an extinguished fire on any new score; a logged day always counts as active.
+- Capability: Render an animated bonfire flame in React Native Skia with distinct unlit/spark, lit-at-varying-size, and out states.
+- Capability: Emit rising particles, embers, glows, and smoke from the flame; show charred logs and a faint smoke wisp when the fire is out.
+- Capability: Adapt the scene atmosphere from local time without continuous JS timers.
+- Capability: Show a visual-only Fire Health tier (Faint, Steady, Bright, Radiant) derived from recent score quality.
+- Capability: Swipe-up bottom sheet calendar with backward month paging and inline 1-5 score picking.
+- Capability: Swipe-down to hide the calendar; full-screen upward swipe that does not steal taps from the gear or day cells.
+- Capability: Short per-day notes that are stored but do not affect score or fire logic.
+- Capability: Flame color/style selection (Amber default; Crimson, Sapphire, and other styles) from a top-right settings control, applied immediately.
+- Capability: Migrate the v1 flameColor setting to the v2 flameStyle identifier.
+- Capability: Catalog of collectible flame styles, each tied to exactly one achievement; Amber is always unlocked and is the only free style.
+- Capability: Streak-based achievements (N-day run counting scored days in the current alive run; unbroken chain with no gaps) that relock when the fire goes out.
+- Capability: Time-based achievements with a calendar-based unlock day and a fixed window through D+W inclusive, restartable from newer completions, with days remaining shown.
+- Capability: Flame gallery listing all flames with locked/unlocked status, colors, requirement, live progress or window countdown.
+- Capability: Equip any flame, including locked ones, which renders in a dimmed embered variant; Amber never renders embered.
+- Capability: Brief in-app feedback when an achievement unlocks, with unlock state recomputed within one refresh after score changes.
+- Capability: Persist scores, notes, and the selected flame style locally across app restarts, with a loading placeholder until data loads (no unlit flash).
+- Capability: Respect reduced-motion OS settings by stopping flame animation loops.
 - Capability: Accessibility labels and adequate touch targets on day cells, picker, settings, flame, and swipe handle.
-- Capability: Frame-rate target of 120 FPS on 120 Hz devices for all flame styles including multicolor ones.
-- Capability: Flame fidelity is a hard requirement with no quality-reduction fallback.
-- Capability: Migration of v1 flameColor settings to v2 flameStyle id.
+- Capability: Maintain 120 FPS rendering on 120 Hz devices for all flame styles including multicolor ones.
+- Capability: Deterministic recomputation of fire state, achievements, and health from stored score history.
 
 ## Out-of-Domain Examples
 
-- Task or to-do list management
-- Charts, graphs, or statistical dashboards as primary views
-- Cloud sync, accounts, or multi-device backend storage
-- Social sharing, leaderboards, or friend comparisons
+- Task or to-do management with checklists and deadlines
+- Pomodoro or focus timers
+- Server-side accounts, cloud sync, or multi-device sharing
+- Social features such as friends, leaderboards, or sharing feeds
+- Charts, dashboards, or analytics graphs as a primary view
 - Push notifications or reminder scheduling
-- Payments, in-app purchases, or monetization of flame styles
-- Web or desktop browser builds as a primary target
-- Calorie, health-metric, or fitness tracking beyond visual fire health
-- Editing the bonfire through code-review, CI, or code-quality tooling features
-- Token-saving or generic AI tooling features inside the app
+- Payments, in-app purchases, or subscriptions for flame styles
+- Calorie, sleep, or fitness tracking beyond the productivity score
+- Web-based or desktop-only rendering targets
+- Free-form rich-text journaling or note formatting beyond short per-day notes
+- Backend API, database server, or authentication flows
+- Generic code-review, token-saving, or spec-kit authoring tooling as product features
 
-<!-- gardener-generated: 06f8e1fb19 084068e34a 0cb567c3e4 14b15c31a6 1a4aa6a80b 1f582ac663 1f97a1abbb 28ca46e55d 2e6d0da5bb 355f2a18bd 38396cd119 442260615a 473607e235 574e7ecce0 587bbdcce9 6c893da3e5 6ddaeee807 6f15121903 74095f2d91 834fd5339a 89b2b50e6f 8e6bce20dc 9271997143 9db6daee32 9e8a4adc27 a254e0b737 a5fdd3b027 b36ae5d5e7 b67d696470 b8c3179997 bac331c3b2 bddc6d6fb8 bed6ba940b c1cf46be41 ca79cf4b2e cc7ab791cc d1d97f530c d3abf332bc ddae174c6e e01886cc60 e2f433cd86 e8d2c09fd4 f01567572c f9f3f7bb24 fa0fc04981 fa93a36bf5 -->
+<!-- gardener-generated: 16407f54c6 1a4aa6a80b 1c078fb5e4 218d4a98b3 228a8a384c 2c6eee5bf5 2f40eabadb 3716a3b9ac 46b0bd02d7 4e757f7adc 4fbc5e7493 550eff96c8 574e7ecce0 5e8021fcbd 61a125def4 6a0f5dad26 6ae727a54b 6c439677b3 6f98be79d4 7894873d58 89b2b50e6f 89b97e3e54 8f9fef5c7c 908e14a3a4 a9a3633437 aa32cb3d0c ac1186e6b3 bcfa40ea5d bddc6d6fb8 c6dfb2b2aa cc7ab791cc cc8b794420 ccec20da73 cdbb93d05f d1d97f530c d252280428 dc7ac66a40 de660d76e1 e0e024db10 e4e537413c e581914858 e9cd10c786 f22f1c1dc3 f278c09f9f f2bd5ec7ec fd7b1c50e8 -->
