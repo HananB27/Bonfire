@@ -3,15 +3,16 @@
 
 ## Protected Modules
 
-- `src/components/Bonfire/flameModel.ts` because The flame intensity and visual mapping (soft cap, height and glow ranges) is a critical visual contract, so changes require human review. (from `specs/001-bonfire-productivity-tracker/contracts/flame-and-theme.md#Contract: Flame Model & Theme (`src/components/Bonfire/flameModel.ts`, `src/theme/*`)`)
+- `src/domain/achievements.ts` because Unlock evaluation for streak and time flames is business logic; the spec requires exact rules such as N-day run counts, D+W windows, and dead-fire voiding of non-Amber flames.
 - `src/domain/flames.ts` because The flame unlock/condition definitions are the designed editing surface and their changes need human review because they drive unlock behavior. (from `specs/003-ui-flame-polish/quickstart.md#Quickstart: UI & Flame Polish Fixes`)
-- `src/domain/achievements.ts` because Contains the streak and time unlock logic (N-day run, unbroken chain, D+W window) that the spec defines precisely and that must stay deterministic.
+- `src/components/Bonfire/flameModel.ts` because The flame intensity and visual mapping (soft cap, height and glow ranges) is a critical visual contract, so changes require human review. (from `specs/001-bonfire-productivity-tracker/contracts/flame-and-theme.md#Contract: Flame Model & Theme (`src/components/Bonfire/flameModel.ts`, `src/theme/*`)`)
 - `src/data/entriesStore.ts` because Persistence of scores must round-trip exactly and loadEntries must never throw, so changes to the storage layer require human review. (from `specs/001-bonfire-productivity-tracker/contracts/entries-store.md#Contract: Entries Store (`src/data/entriesStore.ts`) & `useEntries` hook`)
-- `src/hooks/useSettings.ts` because Owns the v1-to-v2 flameColor-to-flameStyle migration and the default-Amber behavior, which must not break existing installs.
+- `src/hooks/useSettings.ts` because Holds flame style selection and the v1 flameColor to v2 flameStyle migration, which must keep working for existing users.
 - `src/theme/palettes.ts` because Flame palettes must match the design source and are part of the design-fidelity contract. (from `specs/001-bonfire-productivity-tracker/research.md#Phase 0 Research: Bonfire Productivity Tracker (design-faithful Expo build)`)
-- `src/screens/BonfireScreen.tsx` because The screen derives and passes Fire Health state once per data change, so changes to this wiring need human review. (from `specs/007-fire-health/plan.md#Implementation Plan: Fire Health`)
 - `src/components/Bonfire/Flame.tsx` because Flame rendering carries Fire Health visual modifiers and performance constraints, so changes need human review. (from `specs/007-fire-health/plan.md#Implementation Plan: Fire Health`)
-- `src/components/Calendar/CalendarSheet.tsx` because Implements the swipe-up sheet and backward paging that the spec ties to score editing and the 'no interference with taps' requirement.
+- `src/components/Bonfire/FireScene.tsx` because Composes flame, embers, hearth, and the out state (charred logs and smoke only); its state mapping is spec-defined and user-visible.
+- `src/components/Calendar/CalendarSheet.tsx` because Owns the swipe-up sheet gesture, which must not steal taps from the settings gear, dev pill, or day cells.
+- `src/screens/BonfireScreen.tsx` because The screen derives and passes Fire Health state once per data change, so changes to this wiring need human review. (from `specs/007-fire-health/plan.md#Implementation Plan: Fire Health`)
 - `src/domain/fire.ts` because The fire engine is the deterministic oracle for fire state (contribution mapping, streak walk, extinguish rule), so changes require human review. (from `specs/001-bonfire-productivity-tracker/contracts/fire-engine.md#Contract: Fire Engine (`src/domain/fire.ts`)`)
 - `src/data/settingsStore.ts` because Settings persistence must never throw and must fall back to defaults on corrupt data, so changes require human review. (from `specs/001-bonfire-productivity-tracker/contracts/settings-store.md#Contract: Settings Store (`src/data/settingsStore.ts`) & `useSettings` hook`)
 - `src/domain/fireMetrics.ts` because Single deterministic walk producing run metrics and the per-day timeline that all achievement unlocks depend on; changes affect every flame's unlock logic. (from `specs/002-achievement-flame-unlocks/research.md#Phase 0 Research: Achievement-Locked Flame Styles`)
@@ -19,9 +20,11 @@
 
 ## Never-Touch Paths
 
-- `specs/**` because Product specs are the authoritative statement of scope and fix/no-fix policy and must not be rewritten by automated maintenance.
-- `gardener/**` because This is the maintenance tool's own directory, so the tool should not modify its own rules or code.
-- `src/components/Bonfire/flameModel.ts` because Changing the derived fire model without a spec change would silently alter the visual state for existing users' stored history.
+- `specs/**` because Product specs are the authoritative statement of scope and fix/no-fix policy and must not be edited by automated maintenance.
+- `.agents/**` because Agent skill files define project quality and checklist rules that the maintenance tool consumes rather than rewrites.
+- `.claude/**` because Mirrors the agent skill files and defines how coding agents operate in this repository.
+- `src/components/Bonfire/Flame.tsx` because Spec states flame fidelity is a hard requirement with no reduced-quality fallback, so automated changes must not lower rendering quality or drop effects.
+- `gardener/**` because Appears to be the maintenance tooling itself; modifying it from within a maintenance run risks self-modifying behavior.
 - `BonfireDesign/**` because The design bundle is the canonical look-and-feel reference and is a build-time reference that must not be modified by the bot. (from `specs/001-bonfire-productivity-tracker/plan.md#Implementation Plan: Bonfire Productivity Tracker`)
 - `specs/001-bonfire-productivity-tracker/design/README.md` because This design source note records the fetch attempt and fallback decision and should not be altered by automated maintenance. (from `specs/001-bonfire-productivity-tracker/design/README.md#Design Source Note (T004)`)
 - `BonfireDesign/` because BonfireDesign/ is the read-only canonical design reference and source of truth. (from `specs/001-bonfire-productivity-tracker/plan.md#Implementation Plan: Bonfire Productivity Tracker > Constitution Check`)
@@ -39,11 +42,11 @@
 - Updating specs/005-tiny-daily-memory/quickstart.md when validation steps or expected results change during implementation is an expected maintenance change. (source: specs/005-tiny-daily-memory/tasks.md#Tasks: Tiny Daily Memory)
 - Pure helper logic in src/domain/atmosphere.ts should be implemented before rendering details, and rendering before screen integration. (source: specs/006-subtle-atmosphere/tasks.md#Tasks: Subtle Atmosphere > Dependencies & Execution Order > Within Each User Story)
 - Lint and test additions for the Fire Health helper and its render wiring are safe to add without human review. (source: specs/007-fire-health/plan.md#Implementation Plan: Fire Health)
-- Apply Prettier and ESLint (eslint-config-expo) formatting fixes in files outside the protected list.
-- Remove unused imports and dead locals in src/components or __tests__ that do not change behavior.
-- Fix TypeScript strict-mode nits (explicit types, non-null narrowing) that leave runtime behavior unchanged.
-- Add or correct plain-language comments, since the spec requires beginner-friendly comments especially for Skia flame math.
-- Add missing accessibilityLabel props on day cells, picker, settings, flame, and swipe handle, as Principle IV requires.
+- Fix lint and Prettier formatting issues in src/ and __tests__/ that do not alter logic.
+- Add or correct JSDoc and plain-language comments on non-protected modules, since the spec requires beginner-friendly comments (Principle II).
+- Add missing accessibilityLabel props and touch-target sizing on day cells, picker, settings, flame, and swipe handle, as required by Principle IV.
+- Fix TypeScript strict-mode type errors in non-protected files without changing runtime behavior.
+- Remove unused imports and dead code in non-protected files after confirming tests still pass.
 
 ## Assisted Fixes Allowed
 
@@ -52,22 +55,21 @@
 - Adding or tuning catalog flames (rows referencing condition kinds with numeric params and windows) should be reviewed since it changes unlock rules players rely on. (source: specs/002-achievement-flame-unlocks/research.md#Phase 0 Research: Achievement-Locked Flame Styles)
 - Changes to the palette, flame catalog, or score token colors should be reviewed against the flame and heat ramp specs before merging. (source: specs/003-ui-flame-polish/research.md#Research: UI & Flame Polish Fixes)
 - Tests should be written before the implementation tasks they verify within each user story. (source: specs/006-subtle-atmosphere/tasks.md#Tasks: Subtle Atmosphere > Dependencies & Execution Order > Within Each User Story)
-- Add Jest tests for uncovered branches in the existing __tests__ suites (fireMetrics, achievements, flameModel, flames.catalog) with human review of expected values.
-- Patch-level dependency bumps (e.g., jest-expo, eslint-config-expo) followed by the full test run and a manual device smoke check.
-- Refactor duplicated day-cell or picker logic inside src/components/Calendar with behavior-preserving tests.
-- Tighten settings migration handling in useSettings for malformed stored values, with a test covering v1 to v2 migration.
-- Replace hardcoded palette values in components with references to src/theme/palettes.ts.
+- Refactor the time-flame and streak-flame evaluation in src/domain/achievements.ts only with a failing test written first, as the tasks.md workflow requires.
+- Adjust Reanimated or Skia animation code in src/components/Bonfire/* to preserve 120 Hz frame budgets, with a human reviewing the diff.
+- Change the calendar gesture handling in src/components/Calendar/CalendarSheet.tsx, verifying that the gear and day-cell taps still work.
+- Modify AsyncStorage read or write paths in src/data/entriesStore.ts with a migration or backward-compatibility test.
+- Update palette values in src/theme/palettes.ts only with a visual review of Amber, Crimson, and Sapphire rendering and embered variants.
 
 ## Advisory-Only Areas
 
 - Any reconciliation of exact hex values or spacing against the original Bonfire.html should only be suggested, since the original is not currently fetchable. (source: specs/001-bonfire-productivity-tracker/design/README.md#Design Source Note (T004))
 - Constitution requires explanatory header and inline comments on all components, hooks, and engine functions, with heavy commenting on the Skia flame math. (source: specs/001-bonfire-productivity-tracker/plan.md#Implementation Plan: Bonfire Productivity Tracker > Constitution Check)
-- Skia shader and flame math changes, which need on-device visual review and should not be applied autonomously.
-- The 120 FPS requirement on 120 Hz devices for every style, including multicolor ones; this needs profiling on hardware.
-- Achievement thresholds, flame catalog content, and time-window lengths, which are product decisions.
-- Fire Health tiers (Faint, Steady, Bright, Radiant) and their mapping from recent score quality.
-- Reduced-motion behavior, to confirm loops stop when the OS requests it.
-- Whether the entries store's schema should change, since existing users' history depends on it.
+- Whether the flame's visual design, particle density, or Fire Health tiers (Faint, Steady, Bright, Radiant) should change.
+- Achievement thresholds and time-window lengths in the flame catalog, which are product decisions.
+- Performance tuning for multicolor flame styles on 120 Hz devices, where the tool should report measurements rather than change code.
+- Whether the spec's scope statements conflict with each other, such as the requirement to use a loading placeholder versus a brief unlit flash.
+- Dependency upgrades for Expo SDK, React Native, or Reanimated, which involve native build and compatibility risk.
 
 ## Architecture Boundaries
 
@@ -277,14 +279,14 @@
 - The Fire Health domain logic lives in src/domain/fireHealth.ts, and derived state is threaded from BonfireScreen into FireScene and FireCaption rather than recomputed in presentation components. (source: specs/007-fire-health/tasks.md#Tasks: Fire Health)
 - The feature plan and constitution require deterministic test coverage for the derived health model and regression protection for gameplay invariants. (source: specs/007-fire-health/tasks.md#Tasks: Fire Health)
 - The Fire Health health state must never imply a gameplay advantage. (source: specs/007-fire-health/tasks.md#Tasks: Fire Health)
-- Fire state, achievements, and health must be derived deterministically from stored score history; no derived value should be persisted as the source of truth.
-- Domain logic in src/domain and src/data must not import React, Skia, or Reanimated.
-- Rendering uses React Native Skia and Reanimated; animation must not rely on continuous JS timers (the README says the scene adapts from local time without them).
-- Visual-only Fire Health must not feed back into score or fire-strength logic.
-- Notes, when added, must not affect score or fire logic.
-- Amber is always unlocked and never renders embered; no other flame may bypass the lock rules in src/domain/achievements.ts.
-- Flame fidelity has no quality-reduction fallback; performance work must not lower visual quality.
-- A dead fire voids all non-Amber flames; any relock logic must be shared, not duplicated in components.
+- Fire state, achievements, and Fire Health must be derived purely from stored entries; no derived value may be persisted as a source of truth.
+- AsyncStorage access must go through the data stores (src/data/entriesStore.ts and settingsStore) and not be called directly from components.
+- Components in src/components/Bonfire/* must not own score or unlock logic; that logic belongs in src/domain/* and flameModel.ts.
+- The app must not add continuous JS timers for atmosphere; time-based adaptation is computed from local time on render.
+- Flame animation loops must be driven by Reanimated worklets and Skia on the UI thread, and they must stop when reduced motion is requested.
+- Amber is the default and is always unlocked; no code path may gate the base flame behind an achievement.
+- Settings must be read through the useSettings hook, and the v1 flameColor to v2 flameStyle migration must run before the UI reads the value.
+- Locked flames may be selected as the active style, but they must render in their embered variant and never as the full style.
 
 ## Test Rules
 
@@ -383,20 +385,25 @@
 - Changes must show no measurable regression in the flame scene render path; if a change makes the flame heavier or slower, it should be simplified before merge. (source: specs/007-fire-health/quickstart.md#Quickstart: Fire Health)
 - Fire Health derivation requires deterministic unit coverage of the weighted 7-scored-day window, sparse-history fallback (0/1/2 scored days), and four-state thresholds. (source: specs/007-fire-health/tasks.md#Tasks: Fire Health)
 - Regression tests must prove that Fire Health does not alter computeFire, computeMetrics, fireLabel, score-entry round-trips, or unlock outcomes. (source: specs/007-fire-health/tasks.md#Tasks: Fire Health)
-- Use Jest with jest-expo and react-test-renderer; tests live under __tests__ and run before any change is accepted.
-- Follow the spec's test-first approach: new behavior gets a failing test first, as the tasks file requires.
-- Cover the spec's edge cases explicitly: one missed day keeps the fire lit, two consecutive misses extinguish it, and any score relights it.
-- Cover the calendar-date rules: the time window runs through D+W inclusive, days remaining equals (D+W) minus today, and re-completion restarts the window.
-- Check v1 flameColor to v2 flameStyle migration with fixtures from the old storage format.
-- Run tsc in strict mode and ESLint with eslint-config-expo before merging.
-- Frame-rate and GPU rendering cannot be verified in Jest; those changes require manual device checks and are not covered by automated tests.
-- Accessibility and reduced-motion behavior should be checked with component tests where feasible.
+- Use Jest with jest-expo and react-test-renderer; the existing tests live in __tests__/ and jest.setup.js provides shared setup.
+- Write failing tests first for any behavior change, following the tasks.md 'write first, ensure they FAIL' convention.
+- Cover fire rules with fireMetrics.test.ts and flameModel.test.ts: one missed day keeps the fire lit, two consecutive misses extinguish it, and any score relights it.
+- Cover achievement rules with achievements.test.ts and flames.catalog.test.ts: run-day counting, unbroken-chain logic, D+W window inclusive, and window restart on re-completion.
+- Cover UI behavior with BonfireScreen.test.tsx and CalendarSheet.test.tsx, including the loading placeholder and swipe up/down reveal.
+- Run ESLint (.eslintrc.js via eslint-config-expo) and TypeScript strict type checking before reporting a change as verified.
+- Verify that editing a past day recomputes the fire and unlock states, and that unlocks appear without a restart.
+- Flame rendering changes require a manual or device check on a 120 Hz device, since Jest cannot measure frame rate.
 
 ## Ignored Paths
 
 - `BonfireDesign/screenshots/**`
 - `node_modules/**`
+- `coverage/**`
 - `.expo/**`
+- `dist/**`
+- `web-build/**`
+- `ios/**`
+- `android/**`
 
 ## Health Priorities
 
@@ -409,4 +416,4 @@
 - Prefer small PRs scoped to one maintenance category.
 - Do not auto-merge Gardener PRs.
 
-<!-- gardener-generated: 008d6a35db 0097242861 02398ab9df 0284279743 02b2779862 039fdcfeec 05baf12e41 06a87e6a4e 07943a088a 07a916d1e2 0824c16502 09a0025d1c 09c45f4ac4 0aa3529344 0b7aefb73b 0ba708a16a 0bc0cd5e48 0bd274139a 0d6b8b1e6c 0dd32a7e39 0e43aa6a86 0f9751bfa2 113017d182 12d5432434 1331115cf4 134d333942 15a1ff3918 161e3c08b1 1b0f6bf482 1b83971b63 1bae3734ff 1c09011fed 1cc03a952f 1cd47c1a5b 1db37d1429 1dfacbefcd 1f68716698 1f6a7b4416 2008ecb081 202119fca9 203b0b143a 20433f4278 2098324e3a 20e76c3c7a 211943a945 223ea781b0 2301aa925b 2304ed7a37 239ca57ac5 24da9d35f6 27a507f439 2808cdfabc 2872e1e887 28d3000407 2901a65e79 291c497e83 299df061d8 2a0bd6bbe5 2ae35db94c 2b5c5a1ca8 2cfcc02eb6 2d405b0c9d 2d5f492259 2d69d1505d 2f80799985 31805df25e 32d0ae726e 334261cf3a 334664b5a9 33854fb8f2 343e5bb000 34879a71e8 34f365ea23 3503d27153 35437e0d61 356714d2f3 36f9b100f4 3784310366 379636db36 3851c90296 39106b5024 39b7ee10a4 3a33d1830e 3a60e1df23 3a67820408 3b4551972f 3c1875b3ea 3db056f4e4 3ede685a81 3f1be9392a 3f34e0979e 3f39a884e6 3fcf59934c 40db99951e 4101d93e4e 41bc1def26 41c51c6e79 41c9749a5a 41e7d3a7a2 424ed099b2 42f6c69efa 4359e82bbb 437aad077f 43a1b1e1eb 461bd753d3 4711255ce1 473f84df9b 4b0bd75292 4cb2274901 4cd2472655 4cf4d9bdf7 4eabb297bd 503e9ba5fc 519b409608 51f3361abf 520a10af9e 52a284fdd2 552e9243b0 55f3b0f500 565715770b 568e1aeb14 5726e1cc28 58efa0c286 59a45494f1 5a42a66eb6 5a84d44498 5b50108d68 5b735c59e4 5bb2a81dd2 5c2995acad 5c76160dcd 5c88fbc385 5ca410729c 5cd6ab9581 5d619197d7 5df82848b9 5e673de5a9 5e9889a9ab 5f9af0f68c 5fed8a408d 60dd8c7132 6205a3ba8a 62a982a06c 64661687ba 6521a38f27 65a42c2242 65cbe554f3 6616ac96f0 676a83f23e 678d1074c7 68db98f558 68f5d1e90f 6951053fe1 69ad7fdebf 69b0cf97cb 6a24f174b3 6a413760bb 6c9007084a 6d422c3779 6d6768057d 6deb6a69ee 6fd993a0b6 704e773d1b 70dfb25e6d 7188f12131 73ba2ac469 7418cc9408 761de6471f 770f0ae0aa 7872ce0e6a 79d1d821fd 79d407037b 7be4407dd2 7cff7559ee 7d10c5f8f6 7d15d41390 7d32a79dcb 7d45ea409d 7dbf5c98af 7dcab13754 7e2121d60d 7e8416dc05 7eac39ab43 7eaefded1e 7f74ad6c47 7f8f6abf9b 7fb63ef531 829d50dfff 830190d4ca 8301d47bd4 83b6cc24ee 83e988ab7d 846c877010 84b05e89a6 8578b69add 859a0d9860 859c6e8a11 8634b21bde 8755c6b7cd 885d03ac1c 89191a3922 8959016b49 89faab0c21 8b3aff96a9 8bf13de4fb 8c5c5f5f82 8c9b9fed8a 8e36972820 8f821e78b4 8f838930a3 8f9742019c 912bb787da 9130b60576 9297aedfc5 929d4560d2 92d95c56af 92ec1fdcac 9300a65529 939e7b0bae 93af665133 9466dc871d 94b19d1b28 956fa815b0 958b60b403 9726afb0d7 97a831172f 98120d7fcb 98778d615a 99f4e9a31a 9acbfc6e7c 9b5dad21fc 9c13d62e83 9dc753074f 9e44449794 9e7b3a1163 a15f4d40cd a1d8d7c084 a324fed35b a326f52f4b a3680ae429 a3cac1220b a43db683e5 a43e827225 a4d1e4576a a529f0b15b a5a21d481c a5a977bc51 a5ae66dce9 a5d24bcfe3 a626afeb2f a6a910a261 a8cd2bbeb4 a9ddc40d6e acabf19a59 ad0b8dea6d aed439e872 aee01b1644 af348ea770 b06c168818 b075086762 b22d729fcb b27f30eb85 b29ae80722 b312abea36 b39520bbf9 b57a1edfa8 b58907013a b5a098dfca b5b29cccf4 b5fc96da07 b634635ef2 b717118f67 b749eebef0 b8e3a2c9c2 b92f30c131 b9c9a2c8e6 ba283794e8 bf8598b964 c00432805c c01b96e99d c0be955687 c1971207e7 c1e5989d5c c1fabd2c33 c1fd96c00f c2066f599c c29928f74b c2c535f2f7 c301cb6421 c3d789ef48 c43eae6eaa c637ed53bb c674b46ddc c7b56bf845 c8d2552b04 c92f815ba0 c9b1125d60 ca77fc1425 cabb44b06e cb82e7859c cbb2a0b481 cbd8deaba8 cc2f2c33b1 cc3a228fef ce3a6c4af1 cff6f87670 d02e259608 d03e0c0139 d099e66e8e d1605ed34e d1b26ae6ac d25f58f5d6 d34d984515 d38e230d22 d3cb10c754 d45461aeb9 d46491b5a0 d4a79fe2ab d6b1174976 d7361fab66 d97be5a6d5 d9e2c4b746 dc436160cc dc8ba8a8a4 dd92aed466 de2097c259 df31bd248d e0c9ec6f98 e146a800f8 e1b46f7a83 e1e5a9da90 e26e5ca9f0 e2990fe73e e29a58f311 e2feb74d55 e304d2bbbb e305d374c4 e391f56038 e480996c38 e48f2b3f45 e4b9b8b5a1 e5ae59154c e7622388e7 e76ff3b1f0 eaa4c02f10 eae31a6bf9 eae7cfa9c4 eb2f77c639 eb6011973c eb87971508 edc246f5b7 ee4a15ff4b ef03d391e7 ef8f472172 efb68dca00 efeee40a86 f1407d5270 f1a632dbab f354cba2d8 f4687c642c f4691186ac f47820d8f3 f4c45e63f4 f4efbc3c86 f516850e5e f55830c248 f5f3d3be04 f686b9fbbc f751a461ed f8ae45a50a f8c31bb8eb fa3e2fddf6 fa611b18e3 fac8ef8af3 fbcd7ea72b fe2870c0a0 ff1e5bcff2 ff2b562de0 -->
+<!-- gardener-generated: 008d6a35db 010da6a9f8 02398ab9df 0284279743 02b2779862 039fdcfeec 05baf12e41 06a87e6a4e 07943a088a 07a916d1e2 0824c16502 09c45f4ac4 0a58ade337 0aa3529344 0b7aefb73b 0b81610147 0ba708a16a 0bc0cd5e48 0bd274139a 0d6b8b1e6c 0dd32a7e39 0e40546cd0 0e43aa6a86 0f9751bfa2 113017d182 12d5432434 130b15a821 1331115cf4 134d333942 15a1ff3918 161e3c08b1 172356ef29 1b0f6bf482 1b83971b63 1bae3734ff 1c09011fed 1cd47c1a5b 1db37d1429 1dfacbefcd 1e17e52b41 1f6a7b4416 2008ecb081 202119fca9 203b0b143a 20433f4278 2098324e3a 20e76c3c7a 211943a945 223ea781b0 2301aa925b 2304ed7a37 239ca57ac5 23ef4ad0be 24da9d35f6 27a507f439 2808cdfabc 284116db12 28d3000407 2901a65e79 291c497e83 299df061d8 2a0bd6bbe5 2ae35db94c 2b5c5a1ca8 2cfcc02eb6 2d405b0c9d 2d5f492259 2d69d1505d 2ddd009d1d 32d0ae726e 334261cf3a 33854fb8f2 343e5bb000 34879a71e8 34f365ea23 3503d27153 35437e0d61 356714d2f3 36f9b100f4 3784310366 379636db36 39b7ee10a4 3a33d1830e 3b4551972f 3c1875b3ea 3d923b9885 3db056f4e4 3e0ac3100d 3ede685a81 3f1be9392a 3f34e0979e 3f39a884e6 3fcf59934c 40db99951e 4101d93e4e 41bc1def26 41c9749a5a 41e7d3a7a2 424ed099b2 42f6c69efa 4359e82bbb 437aad077f 461bd753d3 473f84df9b 48a9299d6c 4b0bd75292 4cb2274901 4cd2472655 503e9ba5fc 517bde6755 519b409608 51f3361abf 520a10af9e 52a284fdd2 552e9243b0 565715770b 568e1aeb14 5726e1cc28 58efa0c286 591bcb976c 59a45494f1 5a84d44498 5b50108d68 5b735c59e4 5bb2a81dd2 5c2995acad 5c757a0c0d 5c76160dcd 5c88fbc385 5ca410729c 5cd6ab9581 5d18d89d8a 5d619197d7 5d984cfcf0 5df82848b9 5e9889a9ab 5f9af0f68c 5fed8a408d 607205b44b 60dd8c7132 6205a3ba8a 623e2cbb17 62a982a06c 64661687ba 647f18fa66 6521a38f27 65a42c2242 65cbe554f3 6616ac96f0 676a83f23e 678d1074c7 68db98f558 68f5d1e90f 6951053fe1 69ad7fdebf 69b0cf97cb 6a24f174b3 6a413760bb 6b4cd17351 6c9007084a 6d422c3779 6d6768057d 6deb6a69ee 6f0b41db8a 6fd993a0b6 704e773d1b 70dfb25e6d 7188f12131 73ba2ac469 7418cc9408 761de6471f 770f0ae0aa 79d1d821fd 79d407037b 7af2151b95 7be4407dd2 7cff7559ee 7d10c5f8f6 7d15d41390 7d45ea409d 7e2121d60d 7e8416dc05 7eaefded1e 7f74ad6c47 7f8f6abf9b 7fb63ef531 829d50dfff 830190d4ca 8301d47bd4 83999ab635 83b6cc24ee 83e988ab7d 846c877010 84b05e89a6 8578b69add 859a0d9860 859c6e8a11 8634b21bde 87408f2c64 8755c6b7cd 885d03ac1c 89191a3922 8959016b49 89faab0c21 8b3aff96a9 8b9dc82734 8bf13de4fb 8c5c5f5f82 8c9832728d 8de985e0c2 8e36972820 8f821e78b4 8f838930a3 8f9742019c 912bb787da 9130b60576 9297aedfc5 929d4560d2 92d95c56af 92ec1fdcac 9300a65529 939e7b0bae 93af665133 94b19d1b28 956fa815b0 958b60b403 966cbf337e 9726afb0d7 97a831172f 97da2a5df3 98120d7fcb 98776b1403 98778d615a 99f4e9a31a 9acbfc6e7c 9b5dad21fc 9dc753074f 9e44449794 9e7b3a1163 9fff7d7207 a15f4d40cd a1d8d7c084 a324fed35b a326f52f4b a3680ae429 a3cac1220b a43db683e5 a43e827225 a4d1e4576a a529f0b15b a5a977bc51 a5ae66dce9 a626afeb2f a6a910a261 a8cd2bbeb4 acabf19a59 ad0b8dea6d aed439e872 aee01b1644 af348ea770 b06c168818 b075086762 b22d729fcb b27f30eb85 b29ae80722 b312abea36 b39520bbf9 b4c3967d55 b57a1edfa8 b58907013a b5a098dfca b5b29cccf4 b5fc96da07 b634635ef2 b717118f67 b749eebef0 b8e3a2c9c2 b92f30c131 b9c9a2c8e6 ba283794e8 bf8598b964 c00432805c c01b96e99d c0be955687 c1971207e7 c1fabd2c33 c1fd96c00f c2066f599c c29928f74b c2c535f2f7 c301cb6421 c3d789ef48 c43eae6eaa c597cc9c31 c637ed53bb c674b46ddc c7b56bf845 c8bdac71a0 c8d2552b04 c908e868af c9b1125d60 c9e208c09b ca77fc1425 cabb44b06e cb82e7859c cbb2a0b481 cbd8deaba8 cc3a228fef ce3a6c4af1 cff6f87670 d02e259608 d03e0c0139 d099e66e8e d1605ed34e d1b26ae6ac d25f58f5d6 d34d984515 d38e230d22 d3cb10c754 d45461aeb9 d46491b5a0 d4a79fe2ab d6b1174976 d7361fab66 d97be5a6d5 d9e2c4b746 dd92aed466 de2097c259 de55d56915 df31bd248d e0c9ec6f98 e146a800f8 e1b46f7a83 e1e5a9da90 e26e5ca9f0 e2990fe73e e29a58f311 e2feb74d55 e304d2bbbb e305d374c4 e480996c38 e48f2b3f45 e4b9b8b5a1 e5ae59154c e7622388e7 e76ff3b1f0 e9a80ce6bc eaa4c02f10 eae31a6bf9 eae7cfa9c4 eb2f77c639 eb6011973c eb70ad1258 eb87971508 ecd33b08de edc246f5b7 ee4a15ff4b ef03d391e7 ef8f472172 efb68dca00 efeee40a86 f05fd6c433 f1407d5270 f1a632dbab f354cba2d8 f4687c642c f4691186ac f47820d8f3 f4c45e63f4 f4efbc3c86 f516850e5e f55830c248 f5f3d3be04 f751a461ed f8a9872710 f8ae45a50a f8c31bb8eb fa3e2fddf6 fa611b18e3 fac8ef8af3 fbcd7ea72b fc3164a6b1 fe2870c0a0 ff1e5bcff2 ff2b562de0 -->
