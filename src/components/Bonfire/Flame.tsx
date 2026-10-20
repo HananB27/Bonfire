@@ -552,6 +552,57 @@ function AuroraBand({ clock, cx, baseY, fh, colors }: {
   );
 }
 
+const PULSE_GLOW_PEAK: Record<string, number> = {
+  brightBurst: 1.45,
+  warmGlow: 1.22,
+};
+const PULSE_BRIGHT_PEAK: Record<string, number> = {
+  brightBurst: 1.24,
+  warmGlow: 1.08,
+};
+
+/** Look up a pulse peak multiplier by visual kind; 1 means no pulse effect. */
+function pulsePeak(table: Record<string, number>, kind: string | undefined): number {
+  return (kind !== undefined && table[kind]) || 1;
+}
+
+/**
+ * Decide the ignite/grow/fade animation for a lit-state change. Returns the
+ * target opacity and grow sequence to run; `null` grow means "leave as-is".
+ */
+function resolveFadeAndGrow(
+  lit: boolean,
+  wasLit: boolean,
+  strength: number,
+  prevStrength: number,
+): { opacity: number; opacityMs: number; grow: 'ignite' | 'grew' | null } {
+  if (lit && !wasLit) return { opacity: 1, opacityMs: 700, grow: 'ignite' };
+  if (lit && strength > prevStrength) return { opacity: 1, opacityMs: 300, grow: 'grew' };
+  if (!lit) return { opacity: 0, opacityMs: 700, grow: null };
+  return { opacity: 1, opacityMs: 300, grow: null };
+}
+
+/** Palette-derived glow + tongue gradient stops. Pure; memoized by the caller. */
+function buildFlameStops(palette: Palette, ring: boolean) {
+  return {
+    // warm pool of light on the ground (was fixed orange rgba stops)
+    ground: [withAlpha(palette.amber, 0.55), withAlpha(palette.ember, 0.22), withAlpha(palette.ember, 0)],
+    // big soft glow behind the flame — solid disc, or hollow ring (Voidfire)
+    halo: ring
+      ? [withAlpha(palette.ember, 0), withAlpha(palette.amber, 0.38), withAlpha(palette.ember, 0)]
+      : [withAlpha(palette.amber, 0.4), withAlpha(palette.ember, 0.16), withAlpha(palette.ember, 0)],
+    haloPositions: ring ? [0.45, 0.72, 1] : [0, 0.4, 0.7],
+    // base tongue: deep (darkened) red → red → ember → translucent amber tip
+    base: [darken(palette.red, 0.55), palette.red, palette.ember, withAlpha(palette.amber, 0.2)],
+    // mid tongue: darkened red → ember → amber → translucent gold tip
+    mid: [darken(palette.red, 0.8), palette.ember, palette.amber, withAlpha(palette.gold, 0.25)],
+    // accent colors (rings, pulses, bands) — all palette-derived
+    accent: withAlpha(palette.gold, 0.8),
+    accentSoft: withAlpha(palette.gold, 0.5),
+    band: [withAlpha(palette.gold, 0), withAlpha(palette.gold, 0.22), withAlpha(palette.gold, 0)],
+  };
+}
+
 export function FlameLayer({
   fire,
   activeStyle,
@@ -597,14 +648,8 @@ export function FlameLayer({
 
   // Embered flames burn lower: scale the halo/ground glow and overall brightness
   // by `dim` (1 = unchanged). Color still comes entirely from the `palette` prop.
-  const pulseGlowPeak =
-    pulse?.visualKind === 'brightBurst' ? 1.45
-    : pulse?.visualKind === 'warmGlow' ? 1.22
-    : 1;
-  const pulseBrightPeak =
-    pulse?.visualKind === 'brightBurst' ? 1.24
-    : pulse?.visualKind === 'warmGlow' ? 1.08
-    : 1;
+  const pulseGlowPeak = pulsePeak(PULSE_GLOW_PEAK, pulse?.visualKind);
+  const pulseBrightPeak = pulsePeak(PULSE_BRIGHT_PEAK, pulse?.visualKind);
   const baseGlow =
     visual.glow *
     dim *
@@ -651,23 +696,18 @@ export function FlameLayer({
   const prevLit = useSharedValue(lit);
 
   useEffect(() => {
-    if (lit && !prevLit.value) {
-      // ignite
-      opacity.value = withTiming(1, { duration: 700 });
+    const change = resolveFadeAndGrow(lit, prevLit.value, fire.strength, prevStrength.value);
+    opacity.value = withTiming(change.opacity, { duration: change.opacityMs });
+    if (change.grow === 'ignite') {
       grow.value = withSequence(
         withTiming(1.18, { duration: 260 }),
         withSpring(1, { damping: 8, stiffness: 120 }),
       );
-    } else if (lit && fire.strength > prevStrength.value) {
-      // grew
+    } else if (change.grow === 'grew') {
       grow.value = withSequence(
         withTiming(1.14, { duration: 210 }),
         withSpring(1, { damping: 9, stiffness: 140 }),
       );
-    } else if (!lit) {
-      opacity.value = withTiming(0, { duration: 700 });
-    } else {
-      opacity.value = withTiming(1, { duration: 300 });
     }
     prevStrength.value = fire.strength;
     prevLit.value = lit;
@@ -724,26 +764,7 @@ export function FlameLayer({
   // (no hardcoded warm-orange literals), so a blue flame casts blue light and
   // an embered palette dims everything automatically. Memoized on `palette`:
   // recomputed only on flame switch, never per frame (SC-005, ≥120 FPS).
-  const stops = useMemo(
-    () => ({
-      // warm pool of light on the ground (was fixed orange rgba stops)
-      ground: [withAlpha(palette.amber, 0.55), withAlpha(palette.ember, 0.22), withAlpha(palette.ember, 0)],
-      // big soft glow behind the flame — solid disc, or hollow ring (Voidfire)
-      halo: aura.ring
-        ? [withAlpha(palette.ember, 0), withAlpha(palette.amber, 0.38), withAlpha(palette.ember, 0)]
-        : [withAlpha(palette.amber, 0.4), withAlpha(palette.ember, 0.16), withAlpha(palette.ember, 0)],
-      haloPositions: aura.ring ? [0.45, 0.72, 1] : [0, 0.4, 0.7],
-      // base tongue: deep (darkened) red → red → ember → translucent amber tip
-      base: [darken(palette.red, 0.55), palette.red, palette.ember, withAlpha(palette.amber, 0.2)],
-      // mid tongue: darkened red → ember → amber → translucent gold tip
-      mid: [darken(palette.red, 0.8), palette.ember, palette.amber, withAlpha(palette.gold, 0.25)],
-      // accent colors (rings, pulses, bands) — all palette-derived
-      accent: withAlpha(palette.gold, 0.8),
-      accentSoft: withAlpha(palette.gold, 0.5),
-      band: [withAlpha(palette.gold, 0), withAlpha(palette.gold, 0.22), withAlpha(palette.gold, 0)],
-    }),
-    [palette, aura.ring],
-  );
+  const stops = useMemo(() => buildFlameStops(palette, aura.ring), [palette, aura.ring]);
 
   const textures = useMemo((): Record<LayerName, LayerTexture | null> => {
     const make = (layer: (typeof LAYER_RIG)[number]) => {
