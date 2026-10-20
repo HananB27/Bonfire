@@ -74,10 +74,47 @@ export function fireLayoutForWidth(_width: number) {
   };
 }
 
-function BonfireScreen() {
-  const insets = useSafeAreaInsets();
+function useSceneSize() {
   const { width, height } = useWindowDimensions();
   const [sceneSize, setSceneSize] = useState({ width, height });
+
+  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setSceneSize(current =>
+      current.width === nextWidth && current.height === nextHeight
+        ? current
+        : { width: nextWidth, height: nextHeight },
+    );
+  }, []);
+
+  return {
+    sceneWidth: sceneSize.width || width,
+    sceneHeight: sceneSize.height || height,
+    windowHeight: height,
+    handleSceneLayout,
+  };
+}
+
+function useCalendarProgress(reducedMotion: boolean | undefined) {
+  const progress = useSharedValue(0);
+  const sceneClock = useSharedValue(0);
+  const sceneFrame = useFrameCallback(frame => {
+    'worklet';
+    // Keep the full fire scene at display rate even while the calendar moves.
+    sceneClock.value = frame.timeSinceFirstFrame ?? 0;
+  }, false);
+
+  useEffect(() => {
+    sceneFrame.setActive(!reducedMotion);
+  }, [reducedMotion, sceneFrame]);
+
+  return { progress, sceneClock };
+}
+
+function BonfireScreen() {
+  const insets = useSafeAreaInsets();
+  const { sceneWidth, sceneHeight, windowHeight, handleSceneLayout } = useSceneSize();
   const [atmosphere, setAtmosphere] = useState(() => deriveAtmosphere());
 
   const today: DateKey = useMemo(() => todayKey(), []);
@@ -108,19 +145,7 @@ function BonfireScreen() {
     () => deriveFireHealth(entries, fire, today),
     [entries, fire, today],
   );
-  const sceneWidth = sceneSize.width || width;
-  const sceneHeight = sceneSize.height || height;
   const fireLayout = useMemo(() => fireLayoutForWidth(sceneWidth), [sceneWidth]);
-
-  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextWidth = Math.round(event.nativeEvent.layout.width);
-    const nextHeight = Math.round(event.nativeEvent.layout.height);
-    setSceneSize(current =>
-      current.width === nextWidth && current.height === nextHeight
-        ? current
-        : { width: nextWidth, height: nextHeight },
-    );
-  }, []);
 
   // Locked-equip guard (FR-001, defense in depth): the gallery row already
   // refuses locked taps, but this wrapper makes the rule hold for ANY caller —
@@ -134,18 +159,7 @@ function BonfireScreen() {
   );
 
   // Calendar open progress (0..1). The flame does not consume this; it stays put.
-  const progress = useSharedValue(0);
-  const sceneClock = useSharedValue(0);
-  const reducedMotion = useReducedMotion();
-  const sceneFrame = useFrameCallback(frame => {
-    'worklet';
-    // Keep the full fire scene at display rate even while the calendar moves.
-    sceneClock.value = frame.timeSinceFirstFrame ?? 0;
-  }, false);
-
-  useEffect(() => {
-    sceneFrame.setActive(!reducedMotion);
-  }, [reducedMotion, sceneFrame]);
+  const { progress, sceneClock } = useCalendarProgress(useReducedMotion());
 
   useEffect(() => {
     if (settings.flameStyle !== BASE_FLAME_ID && states[settings.flameStyle]?.unlocked !== true) {
@@ -259,7 +273,7 @@ function BonfireScreen() {
         noteDraft={noteDraft}
         onNoteChange={setNoteDraft}
         progress={progress}
-        height={height}
+        height={windowHeight}
       />
     </View>
   );
