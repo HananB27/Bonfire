@@ -50,25 +50,13 @@ function DayCell({ dateKey, dayNumber, kind, score, isToday, selected, onPress }
         <View
           style={[
             styles.real,
-            kind === 'future' && styles.future,
-            kind === 'missed' && styles.missed,
+            ...kindStyles(kind),
             isToday && styles.today,
-            scored && { backgroundColor: heat!.background, borderWidth: 0 },
-            // the white "1" day keeps a token-defined hairline so it doesn't
-            // read as an empty cell (today/selected rings below still win)
-            scored && heat!.border !== undefined && { borderWidth: 1.4, borderColor: heat!.border },
-            scored && isToday && styles.scoredToday,
+            ...heatCellStyles(heat, isToday),
             selected && styles.selected,
             pressed && tappable && styles.pressed,
           ]}>
-          <Text
-            style={[
-              styles.num,
-              kind === 'future' && styles.numFuture,
-              kind === 'missed' && styles.numMissed,
-              isToday && !scored && styles.numToday,
-              scored && { color: heat!.color },
-            ]}>
+          <Text style={[styles.num, ...numberStyles(kind, isToday, scored), ...heatNumberStyles(heat)]}>
             {dayNumber}
           </Text>
 
@@ -76,16 +64,57 @@ function DayCell({ dateKey, dayNumber, kind, score, isToday, selected, onPress }
           {kind === 'missed' && <View style={styles.missedDot} />}
 
           {/* heat pips under a scored day (one per point) */}
-          {scored && (
-            <View style={styles.pips}>
-              {Array.from({ length: score as number }).map((_, i) => (
-                <View key={i} style={styles.pip} />
-              ))}
-            </View>
-          )}
+          {scored && <Pips count={score as number} />}
         </View>
       )}
     </Pressable>
+  );
+}
+
+const KIND_CELL_STYLES: Partial<Record<DayKind, object>> = {
+  future: styles.future,
+  missed: styles.missed,
+};
+
+const KIND_NUMBER_STYLES: Partial<Record<DayKind, object>> = {
+  future: styles.numFuture,
+  missed: styles.numMissed,
+};
+
+function kindStyles(kind: DayKind): object[] {
+  const extra = KIND_CELL_STYLES[kind];
+  return extra ? [extra] : [];
+}
+
+function numberStyles(kind: DayKind, isToday: boolean | undefined, scored: boolean): object[] {
+  const result: object[] = [];
+  const kindStyle = KIND_NUMBER_STYLES[kind];
+  if (kindStyle) result.push(kindStyle);
+  if (isToday && !scored) result.push(styles.numToday);
+  return result;
+}
+
+// the white "1" day keeps a token-defined hairline so it doesn't
+// read as an empty cell (today/selected rings below still win)
+function heatCellStyles(heat: ReturnType<typeof heatStyle> | undefined, isToday: boolean | undefined): object[] {
+  if (!heat) return [];
+  const result: object[] = [{ backgroundColor: heat.background, borderWidth: 0 }];
+  if (heat.border !== undefined) result.push({ borderWidth: 1.4, borderColor: heat.border });
+  if (isToday) result.push(styles.scoredToday);
+  return result;
+}
+
+function heatNumberStyles(heat: ReturnType<typeof heatStyle> | undefined): object[] {
+  return heat ? [{ color: heat.color }] : [];
+}
+
+function Pips({ count }: { count: number }) {
+  return (
+    <View style={styles.pips}>
+      {Array.from({ length: count }).map((_, i) => (
+        <View key={i} style={styles.pip} />
+      ))}
+    </View>
   );
 }
 
