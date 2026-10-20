@@ -7,47 +7,48 @@
 - In-domain: `mobile app`.
 - In-domain: `productivity tracking`.
 - In-domain: `gamification / achievements`.
-- In-domain: `animated data visualization`.
-- In-domain: `local-first persistence`.
-- In-domain: `calendar UI`.
-- In-domain: `React Native graphics (Skia/Reanimated)`.
-- Capability: Record one integer productivity score from 1 to 5 per day, rejecting out-of-range values and future dates.
-- Capability: Edit, change, or clear scores for today and past days.
-- Capability: Compute fire strength as the cumulative sum of per-day contributions (1 adds none, 2-5 add increasing strength) over the current lit run.
-- Capability: Extinguish the fire after two consecutive missed past days; a single missed day keeps it alive; unscored today does not count as a miss.
-- Capability: Relight an extinguished fire with any logged score, with a 1 relighting it as a minimal flame at strength 0.
-- Capability: Derive fire state deterministically from the full score history against the current date, independent of entry order.
-- Capability: Render an animated flame on a single screen with unlit/spark, lit at varying sizes, and out states, using React Native Skia and Reanimated.
-- Capability: Soft-cap on-screen flame size while underlying strength keeps increasing.
-- Capability: Emit rising embers/sparks while lit, scaled with strength; show charred logs and smoke wisp when out.
-- Capability: Swipe-up full-screen gesture reveals a calendar bottom sheet; swipe-down hides it (React Native Gesture Handler).
-- Capability: Month-focused calendar with day cells colored by score, indicating scored vs missed days, with inline 1-5 picker.
-- Capability: Paginate calendar backward through any number of past months while capping forward navigation at the current month.
-- Capability: Flame color selection (Amber default, Crimson, Sapphire) from a settings button in the top-right corner, applied immediately and persisted.
-- Capability: Persist scores, selected flame, and flame color locally with AsyncStorage; work fully offline.
-- Capability: Show a loading placeholder until stored scores load, without discarding scores entered during load.
-- Capability: Optional short per-day notes that do not affect score or fire logic.
-- Capability: Flame catalog with achievements: each non-base flame tied to one streak-specific or time-specific achievement; Amber always unlocked.
-- Capability: Streak-specific flame unlocking while the current run meets its condition (e.g. N-day run tolerating missed days, unbroken chain, daily-logged), relocking when the fire goes out.
-- Capability: Time-specific flame unlocking for a window of days from the achievement day, not banked, restored by relighting within the window.
-- Capability: Flame gallery showing all catalog flames with name, colors, requirement, live progress, and re-earn prompts; equipping locked flames renders an embered variant.
-- Capability: Visual-only Fire Health rating (Faint, Steady, Bright, Radiant) derived from recent score quality.
-- Capability: Scene atmosphere adapting to local time without continuous JS timers.
-- Capability: Spec-driven development workflow tooling (speckit specify/clarify/plan/implement/checklist/constitution) for maintaining specs and tasks.
+- In-domain: `animated graphics rendering (Skia/Reanimated)`.
+- In-domain: `local-first on-device storage`.
+- In-domain: `gesture-driven UI`.
+- Capability: Assign an integer productivity score of 1 to 5 to today or any past day.
+- Capability: Add, change, or clear scores for past and current days, with future dates rejected.
+- Capability: Recompute fire state deterministically from the stored calendar history.
+- Capability: Convert scores into cumulative bonfire strength, where 1 keeps the fire lit at strength 0 and 2-5 add increasing strength.
+- Capability: Soft-cap the on-screen flame size while underlying strength keeps increasing.
+- Capability: Extinguish the fire after two consecutive missed past days; a single missed day keeps the streak alive.
+- Capability: Relight an extinguished fire with any score from 1 to 5.
+- Capability: Render charred logs and a thin smoke wisp when the fire is out.
+- Capability: Render an animated flame with Skia and Reanimated, including embers and glows.
+- Capability: Show visual-only Fire Health tiers (Faint, Steady, Bright, Radiant) derived from recent score quality.
+- Capability: Adapt scene atmosphere from local time without continuous JS timers.
+- Capability: Swipe-up gesture opens a calendar sheet and swipe-down hides it.
+- Capability: Month-focused calendar that pages backward through past months only.
+- Capability: Log, edit, clear, and review scores from the calendar sheet.
+- Capability: Store short per-day notes that do not affect score or fire logic.
+- Capability: Settings surface opened from a top-right settings button.
+- Capability: Choose flame color (Amber default, Crimson, Sapphire) that persists across restarts.
+- Capability: Catalog of 20 flame styles (1 base, 8 streak-based, 11 time-based), each tied to an achievement.
+- Capability: Streak-specific flames unlock while the current run satisfies their condition and relock when the fire goes out.
+- Capability: Time-specific flames unlock on their achievement day, stay available through a fixed window from the calendar completion day, and expire afterward.
+- Capability: Embered (dim, desaturated) rendering for locked-but-equipped flames, returning to full vibrancy when earned.
+- Capability: Flame gallery grouped by tier (Base, Streak, Time) showing lock state, requirements, live progress, and remaining window days.
+- Capability: In-app feedback when a flame newly unlocks.
+- Capability: Persist scores, notes, achievements state inputs, and selected flame locally with AsyncStorage.
+- Capability: Migrate settings from v1 flameColor key to v2 flameStyle id.
+- Capability: Loading placeholder on cold start until saved data is ready.
+- Capability: Fully offline, portrait-only operation with no backend or network use.
 
 ## Out-of-Domain Examples
 
-- Task management, to-do lists, or task completion tracking
-- Charts, graphs, or statistical dashboards as primary views
-- Traditional streak counters displayed as the main UI
-- Cloud sync, user accounts, or multi-device backend synchronization
+- Push notifications or reminders
+- Cloud sync, accounts, or multi-device sharing
+- Backend APIs or remote data storage
+- Task management, to-do lists, or project tracking
+- Charts, graphs, or analytics dashboards as primary views
 - Social features such as sharing, friends, or leaderboards
-- Push notifications or reminder scheduling
-- Time tracking or Pomodoro timers
-- Calendar event scheduling or external calendar integration
-- Payments, in-app purchases, or monetized flame store
-- Web-only or server-side rendering features
-- Scores on a scale other than integers 1-5 or scoring of future dates
-- Continuous JS timer-driven animation loops outside Reanimated/Skia
+- Payments, in-app purchases, or monetized flame unlocks
+- Landscape or tablet-specific layouts
+- Future-dated score entry or forecasting
+- Web browser or desktop deployment targets
 
-<!-- gardener-generated: 04a2832099 10e034f1bc 1a4aa6a80b 1be5af1409 1f97a1abbb 259bb79c97 31ae3df81c 3621a12b4b 3c87bae5d5 427f81c9cc 42c8c66df0 437d547ed0 474e4e5e0a 47f36db0e2 481af001e9 51154bc3cc 52728828d0 53dc55d17e 574e7ecce0 6101914088 6157f194d4 6b97174acb 6f15121903 70780b0ab4 7a87e0d09d 7aa4183acb 7e024782ab 7e7d70d7a4 83590d5385 89b2b50e6f 8d68a77f0b 91cd94c8fd 9505ab6dcc a5766aa048 aa14c7efa0 b3c40eb7d4 bda25609e6 cb89c24699 d3abf332bc e5c8e998e2 ef97bad04b f01567572c f91a1095e3 -->
+<!-- gardener-generated: 06a93813bd 072df1a7eb 18f4de16c6 1a4aa6a80b 1f97a1abbb 2973876206 3677781031 38133b21b5 3cb526e011 454bb20cd2 4647663d40 4694ebc8c8 48cf5772cd 4a6ee42624 4bdcc8962b 4d596c7044 574e7ecce0 58731477df 5dd131aa99 5e8e99f3ea 67b120628e 6f15121903 7e0ec1a315 7e7c2bbd67 7f29283ec2 83590d5385 844af104d1 8a3093907a 8b7ef19d26 8f30b1e028 98e3cbbd8e 990c017bbe 9b0ccaf08e a6fc92927d a8326f6451 ac4cbe271d b0063fdae0 b367ccb2d3 b5dbace350 ba0e85aba6 bed6ba940b d1deb12891 daba0458ff dc278c77b4 -->
