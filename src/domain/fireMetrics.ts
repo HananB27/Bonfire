@@ -59,6 +59,59 @@ function emptyMetrics(): RunMetrics {
   };
 }
 
+/** Mutable run accumulators, reset every time the fire relights from a spark. */
+interface RunAccumulators {
+  runStart: DateKey | null;
+  runDays: number;
+  strongDays: number;
+  perfectDays: number;
+  scoreSum: number;
+}
+
+/** A fresh, empty set of run accumulators. */
+function freshRun(): RunAccumulators {
+  return { runStart: null, runDays: 0, strongDays: 0, perfectDays: 0, scoreSum: 0 };
+}
+
+/** Relight from a fresh spark: start a new run beginning on `day`. */
+function relightRun(day: DateKey): RunAccumulators {
+  return { ...freshRun(), runStart: day };
+}
+
+/**
+ * Handle a missed past day. Counts the consecutive misses and reports whether
+ * the fire goes out (two in a row extinguish a lit fire, and strength is zeroed).
+ */
+function applyMissedDay(
+  consMiss: number,
+  alive: boolean,
+): { consMiss: number; alive: boolean; strength: number } {
+  const nextMiss = consMiss + 1;
+  if (nextMiss >= 2 && alive) {
+    return { consMiss: nextMiss, alive: false, strength: 0 };
+  }
+  return { consMiss: nextMiss, alive, strength: 0 };
+}
+
+/** Fold one scored day into the current run's accumulators. */
+function accumulateScore(run: RunAccumulators, score: Score): void {
+  run.runDays += 1;
+  run.scoreSum += score;
+  if (score >= 4) run.strongDays += 1; // "strong" day
+  if (score === 5) run.perfectDays += 1; // "perfect" day
+}
+
+/** Build the per-day snapshot stored in the timeline. */
+function snapshotDay(
+  date: DateKey,
+  score: Score | undefined,
+  alive: boolean,
+  strength: number,
+  consMiss: number,
+): DayPoint {
+  return { date, score, alive, strength, consMiss };
+}
+
 /**
  * Compute all run/history metrics from the calendar, evaluated against `today`.
  * Mirrors `computeFire`'s walk so the two never disagree about lit/out/strength.
@@ -84,13 +137,7 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
   let chain = 0;
   let prevScored = false;
 
-  // Current-run accumulators — RESET on every relight (a fresh spark).
-  let runStart: DateKey | null = null;
-  let runDays = 0;
-  let strongDays = 0;
-  let perfectDays = 0;
-  let scoreSum = 0;
-
+  let run = freshRun();
   const timeline: DayPoint[] = [];
 
   while (cur <= today) {
@@ -101,45 +148,28 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
         // Relight from a fresh spark.
         alive = true;
         strength = 0;
-        runStart = cur;
-        runDays = 0;
-        strongDays = 0;
-        perfectDays = 0;
-        scoreSum = 0;
+        run = relightRun(cur);
       }
       strength += contribution(score);
       consMiss = 0;
 
       // Unbroken chain: extend if yesterday was scored, else start a new run of 1.
       chain = prevScored ? chain + 1 : 1;
-
-      // Accumulate current-run stats.
-      runDays += 1;
-      scoreSum += score;
-      if (score >= 4) strongDays += 1; // "strong" day
-      if (score === 5) perfectDays += 1; // "perfect" day
-
+      accumulateScore(run, score);
       prevScored = true;
     } else if (isPast(cur, today)) {
       // A past day with no score is a miss; two in a row extinguish the fire.
-      consMiss += 1;
-      if (consMiss >= 2 && alive) {
-        alive = false;
-        strength = 0;
-      }
+      const miss = applyMissedDay(consMiss, alive);
+      consMiss = miss.consMiss;
+      alive = miss.alive;
+      strength = miss.strength;
       prevScored = false;
     } else {
       // `cur === today` and unscored: not a miss yet, just breaks the chain count.
       prevScored = false;
     }
 
-    timeline.push({
-      date: cur,
-      score: isScore(score) ? score : undefined,
-      alive,
-      strength,
-      consMiss,
-    });
+    timeline.push(snapshotDay(cur, isScore(score) ? score : undefined, alive, strength, consMiss));
     cur = addDays(cur, 1);
   }
 
@@ -150,13 +180,13 @@ export function computeMetrics(entries: Entries, today: DateKey): RunMetrics {
   }
 
   return {
-    runStart,
-    runDays,
-    runSpanDays: runStart ? diffDays(today, runStart) + 1 : 0,
+    runStart: run.runStart,
+    runDays: run.runDays,
+    runSpanDays: run.runStart ? diffDays(today, run.runStart) + 1 : 0,
     unbrokenChain: chain,
-    strongDaysInRun: strongDays,
-    perfectDaysInRun: perfectDays,
-    scoreSumInRun: scoreSum,
+    strongDaysInRun: run.strongDays,
+    perfectDaysInRun: run.perfectDays,
+    scoreSumInRun: run.scoreSum,
     timeline,
   };
 }
