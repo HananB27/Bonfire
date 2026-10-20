@@ -38,6 +38,7 @@ import {
   useReducedMotion,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import Atmosphere from '../components/Bonfire/Atmosphere';
 import FireScene from '../components/Bonfire/FireScene';
@@ -74,10 +75,58 @@ export function fireLayoutForWidth(_width: number) {
   };
 }
 
-function BonfireScreen() {
-  const insets = useSafeAreaInsets();
+function useSceneSize() {
   const { width, height } = useWindowDimensions();
   const [sceneSize, setSceneSize] = useState({ width, height });
+
+  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = Math.round(event.nativeEvent.layout.width);
+    const nextHeight = Math.round(event.nativeEvent.layout.height);
+    setSceneSize(current =>
+      current.width === nextWidth && current.height === nextHeight
+        ? current
+        : { width: nextWidth, height: nextHeight },
+    );
+  }, []);
+
+  return {
+    width,
+    height,
+    sceneWidth: sceneSize.width || width,
+    sceneHeight: sceneSize.height || height,
+    handleSceneLayout,
+  };
+}
+
+function useCalendarSheet(progress: SharedValue<number>, selectedDate: DateKey | null, setSelectedDate: (date: DateKey | null) => void) {
+  const closeCalendar = useCallback(() => {
+    cancelAnimation(progress);
+    progress.value = withTiming(0, CALENDAR_TIMING);
+    setSelectedDate(null);
+  }, [progress, setSelectedDate]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (selectedDate !== null) {
+        setSelectedDate(null);
+        return true;
+      }
+
+      if (progress.value > 0.01) {
+        closeCalendar();
+        return true;
+      }
+
+      return false;
+    });
+
+    return () => subscription.remove();
+  }, [closeCalendar, progress, selectedDate, setSelectedDate]);
+}
+
+function BonfireScreen() {
+  const insets = useSafeAreaInsets();
+  const { height, sceneWidth, sceneHeight, handleSceneLayout } = useSceneSize();
   const [atmosphere, setAtmosphere] = useState(() => deriveAtmosphere());
 
   const today: DateKey = useMemo(() => todayKey(), []);
@@ -108,19 +157,7 @@ function BonfireScreen() {
     () => deriveFireHealth(entries, fire, today),
     [entries, fire, today],
   );
-  const sceneWidth = sceneSize.width || width;
-  const sceneHeight = sceneSize.height || height;
   const fireLayout = useMemo(() => fireLayoutForWidth(sceneWidth), [sceneWidth]);
-
-  const handleSceneLayout = useCallback((event: LayoutChangeEvent) => {
-    const nextWidth = Math.round(event.nativeEvent.layout.width);
-    const nextHeight = Math.round(event.nativeEvent.layout.height);
-    setSceneSize(current =>
-      current.width === nextWidth && current.height === nextHeight
-        ? current
-        : { width: nextWidth, height: nextHeight },
-    );
-  }, []);
 
   // Locked-equip guard (FR-001, defense in depth): the gallery row already
   // refuses locked taps, but this wrapper makes the rule hold for ANY caller —
@@ -153,29 +190,7 @@ function BonfireScreen() {
     }
   }, [settings.flameStyle, setFlameStyle, states]);
 
-  const closeCalendar = useCallback(() => {
-    cancelAnimation(progress);
-    progress.value = withTiming(0, CALENDAR_TIMING);
-    setSelectedDate(null);
-  }, [progress]);
-
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (selectedDate !== null) {
-        setSelectedDate(null);
-        return true;
-      }
-
-      if (progress.value > 0.01) {
-        closeCalendar();
-        return true;
-      }
-
-      return false;
-    });
-
-    return () => subscription.remove();
-  }, [closeCalendar, progress, selectedDate]);
+  useCalendarSheet(progress, selectedDate, setSelectedDate);
 
   // Refresh the derived sky only when the app becomes active. This keeps the
   // atmosphere aligned with local time without adding timers or per-frame work.
