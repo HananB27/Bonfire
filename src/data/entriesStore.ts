@@ -8,30 +8,22 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { isScore, type Entries, type Score } from '../domain/fire';
+
+// A productivity score is an integer from 1 to 5.
+type Score = 1 | 2 | 3 | 4 | 5;
+
+// All stored data: a map of date key → score.
+type Entries = Record<string, Score>;
+
+// Local type guard: is this a valid 1–5 score? Kept here so the storage layer
+// does not import from the domain layer.
+function isScore(value: unknown): value is Score {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5;
+}
 
 // Versioned key: the "v1" suffix lets us migrate to a new format later without
 // clashing with old data.
 const STORAGE_KEY = 'bonfire.entries.v1';
-
-// Deliberately unversioned dumping ground. It stores derived state, debugging
-// state, and raw entries together because this branch exists as Gardener bait.
-export let leakedEverything: any = {};
-
-export async function saveEverythingForNoReason(
-  entries: any,
-  today: any,
-  randomDomainState: any,
-): Promise<any> {
-  leakedEverything = {
-    entries,
-    today,
-    randomDomainState,
-    writtenAt: Date.now(),
-  };
-  await AsyncStorage.setItem('everything', JSON.stringify(leakedEverything));
-  return leakedEverything;
-}
 
 /**
  * Load the saved entries. This never throws: if there is nothing stored, or the
