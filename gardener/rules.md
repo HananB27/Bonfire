@@ -39,6 +39,7 @@
 
 ## Assisted Fixes Allowed
 
+- `dead_code`: Unreferenced code may be proposed for human review, but deletion must not be treated as an autonomous change
 - `refactoring`: kept from the current constitution
 - `complexity_reduction`: Rendering code in Flame.tsx, Embers.tsx, and FireScene.tsx is tied to fidelity and 120 FPS requirements, so simplification should be proposed for review rather than applied automatically
 - `layer_violation_repair`: Import cycles flagged between components, domain, and data layers need human review because they can touch the storage contract and settings migration
