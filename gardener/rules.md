@@ -3,26 +3,12 @@
 
 ## Protected Modules
 
-- `src/domain/flames.ts` because Flame catalog file holds unlock, palette, and rarity data alongside the new visualProfile; changes need review because unlock and identity logic live here. (from specs/004-flame-visual-profiles/plan.md#Implementation Plan: Flame Visual Profiles)
-- `src/components/Bonfire/flameModel.ts` because Pure profile/strength/effect helpers that must preserve fire strength math; changes need human review. (from specs/004-flame-visual-profiles/plan.md#Implementation Plan: Flame Visual Profiles)
-- `src/data/entriesStore.ts` because Persists scores on-device through AsyncStorage; changes here can silently lose user history or break the offline guarantee.
-- `src/components/Bonfire/FireScene.tsx` because Composes the out-state visuals (charred logs, smoke wisp, no embers) that must take precedence over any equipped flame style.
-- `src/components/Bonfire/Hearth.tsx` because Part of the bonfire scene composition whose visual output is spec-defined and fidelity-sensitive.
-- `src/components/Bonfire/FireCaption.tsx` because Displays Fire Health (Faint, Steady, Bright, Radiant) derived from recent score quality; its labels must match the spec.
-- `src/screens/BonfireScreen.tsx` because Owns the cold-start loading placeholder that must prevent an early unlit flash and must not let load overwrite an early tap, plus the swipe-up calendar entry.
-- `src/components/Calendar/CalendarSheet.tsx` because Implements backward-only month paging, future-date rejection, and the full-screen swipe-up gesture where taps on the gear and day cells must still work.
-- `src/components/Settings/FlameGallery.tsx` because Shows lock state, requirement text, and live progress or remaining window days, which are spec-defined user-facing outputs.
-- `src/components/Settings/SettingsSheet.tsx` because Hosts the flame color and style selection and the gallery entry point from the top-right settings button.
-- `src/theme/palettes.ts` because Holds the flame gradient and color definitions that the spec fixes for Amber, Crimson, Sapphire, and the embered variants; edits change the design.
-- `.eslintrc.js` because Lint configuration that enforces the TypeScript and React Native rules the codebase relies on; loosening it can hide layer and type problems.
-- `jest.setup.js` because Global Jest setup that mocks native modules such as Skia, Reanimated, and AsyncStorage; changes can make the whole test suite pass or fail for the wrong reasons.
+No application modules are protected on this intentional Gardener demo branch.
 
 ## Never-Touch Paths
 
 - `specs/**` because Product specs, contracts, and checklists are the authoritative statement of scope and fix policy and must not be edited by automated changes.
 - `gardener/**` because This is the maintenance tool's own directory, so automated changes to it could alter the policy that governs them.
-- `src/domain/fire.ts` because computeFire in src/domain/fire.ts must stay unchanged; richer metrics live in a new module. (from specs/002-achievement-flame-unlocks/tasks.md#Tasks: Achievement-Locked Flame Styles)
-- `__tests__/fire.test.ts` because The fire.ts test file must stay unchanged alongside computeFire. (from specs/002-achievement-flame-unlocks/tasks.md#Tasks: Achievement-Locked Flame Styles)
 - `**/.env*` because secrets must never be modified by Gardener.
 - `**/secrets/**` because secret material requires human handling.
 
