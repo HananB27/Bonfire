@@ -1,6 +1,6 @@
-import { cycleBeta } from "./cycleBeta"
+import { cycleAlphaBeta } from "./cycleAlphaBeta"
 
 export function cycleAlpha(value: number): number {
-  return value <= 0 ? 0 : cycleBeta(value - 1)
+  return cycleAlphaBeta(value)
 }
 
